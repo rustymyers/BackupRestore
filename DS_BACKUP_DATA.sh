@@ -235,7 +235,9 @@ exit 0
 # Test USB Ethernet dongle for one machine
 
 ## Changes
-# Saturday, Febuary 05, 2011 - v0.4.4
+#
+# Wednesday, Febuary 09, 2011 - v0.4.4
+# 	- Adding to git
 # 	- Added rsync as an backup tool option
 # 	- Removed Unique ID from user data, its only used for the backup folder.
 # 	- Changed test for mobile/network accounts. Should work better.

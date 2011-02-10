@@ -211,7 +211,9 @@ exit 0
 
 
 ## Changes
-# Friday, Fabruary, 04, 2011 - v0.4.4
+#
+# Wednesday, Febuary 09, 2011 - v0.4.4
+# 	- Adding to git
 # 	- Added restore support for rsync
 # 	- Removed unique id references from files
 # 
