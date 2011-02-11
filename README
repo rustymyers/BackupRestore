@@ -1,3 +1,39 @@
 BackupRestore Scripts
 
-Used to backup users and home folders before imaging and resore them afterwards.
+## Intro ##
+See post here: http://rustyisageek.blogspot.com/p/backuprestore-scripts.html
+
+## Please contact me if you would like to submit code. I still need to get alternate backup methods working. Rsync and ditto have been failing in my tests. ##
+
+
+## Basic Usage ##
+
+DS_BACKUP_DATA.sh [ -q Unique_ID ] [ -e "guest admin shared" ] [ -v "/Volumes/Macintosh HD" ] [ -u /Users ] [ -d "/Volumes/External Drive/" ] [ -t tar ]
+Variables can be set in DeployStudio variables window when running script.
+BackupRestore Variables:
+-q Unique Identifier. Should be left empty.
+-e Users to Skip - Doesn't Work.
+        Must use quotes for multiple users
+        Default is "guest" and "shared"
+            You must specify "guest" and
+            "shared" if your use the argument
+-v Target volume
+        Specify full path to mount point of volume
+        Default is the internal volume
+        e.g. /Volumes/Macintosh HD
+-u User path on target
+        Set to path of users on volume
+        Default is /Users
+-d Backup destination
+        Specify full path to the backup volume
+        Default is /tmp/DSNetworkRepository
+-t Backup tool (tar) - Still working on this one!
+        Select backup software, Default tar
+        tar = Use tar with gzip to backup.
+
+
+## Advanced Usage ##
+
+If you'd like to backup from one computer and restore to another, you can specify the MAC address as the UNIQUE_ID (-q) when restoring. This tells the restore scripts to pull the backup from the old computer (by MAC address) rather than look for a backup from the same computer (same MAC address).
+
+Alternatively, you can specify a UNIQUE_ID (-q) for both backup and restore. This way, the scripts will ignore the MAC address of the machines and backup and restore the data using the specified variable. Be sure to set the target volume (-t) for the Backup and Restore so the scripts know where to pull the data from and where to restore it to. Otherwise, the BackupRestore scripts will use the internal drive of that machine as the backup and restore destinations.

@@ -7,41 +7,33 @@
 # Uses the files backed up to MAC address of the machine,
 # stored in the DeployStudio repository Backups folder
 
-# Variables can be set in DeployStudio variables window when running script.
-# BackupRestore Variables:
-# -v Target volume
-# 		Specify full path to mount point of volume
-# 		Default is the \$DS_LAST_RESTORED_VOLUME volume
-# 		e.g. \"/Volumes/Macintosh HD\"
-# -u User path on target
-# 		Set to path of users on volume
-# 		Default is /Users
-# -r Backup Repository Path
-# 		Set to path of the backup volume
-# 		Default is the DS Repository
-# 		e.g. \"/Volumes/NFSDrive/Backups\"
+function help {
+	
+    cat<<EOF
 
-function printHELP {
-echo -e "Usage: `basename $0` [ -e \"guest admin shared\" ] [ -v \"/Volumes/Macintosh HD\" ] [ -u /Users ] [ -d \"/Volumes/External Drive/\" ] [ -t tar ]"
-echo -e "Variables can be set in DeployStudio variables window when running script."
-echo -e "BackupRestore Variables:"
-echo -e "-q Unique Identifier."
-echo -e "		Enter the MAC address of the backup you want to restore."
-echo -e "		For example, if you backup a computer and its MAC address"
-echo -e "		was: 000000000001. You can then specify that MAC as the"
-echo -e "		variable to restore to a different computer. Make sure"
-echo -e "		you specify the target volume if your not restoring an image."
-echo -e "-v Target volume"
-echo -e "		Specify full path to mount point of volume"
-echo -e "		Default is the \$DS_LAST_RESTORED_VOLUME volume"
-echo -e "		e.g. \"/Volumes/Macintosh HD\""
-echo -e "-u User path on target"
-echo -e "		Set to path of users on volume"
-echo -e "		Default is /Users"
-echo -e "-r Backup Repository Path"
-echo -e "		Set to path of the backup volume"
-echo -e "		Default is the DS Repository"
-echo -e "		e.g. \"/Volumes/NFSDrive/Backups\""
+	Usage: `basename $0` [ -e \"guest admin shared\" ] [ -v \"/Volumes/Macintosh HD\" ] [ -u /Users ] [ -d \"/Volumes/External Drive/\" ] [ -t tar ]
+	Variables can be set in DeployStudio variables window when running script.
+	BackupRestore Variables:"
+	-q Unique Identifier."
+			Enter the MAC address of the backup you want to restore."
+			For example, if you backup a computer and its MAC address"
+			was: 000000000001. You can then specify that MAC as the"
+			variable to restore to a different computer. Make sure"
+			you specify the target volume if your not restoring an image."
+	-v Target volume"
+			Specify full path to mount point of volume"
+			Default is the \$DS_LAST_RESTORED_VOLUME volume"
+			e.g. \"/Volumes/Macintosh HD\""
+	-u User path on target"
+			Set to path of users on volume"
+			Default is /Users"
+	-r Backup Repository Path"
+			Set to path of the backup volume"
+			Default is the DS Repository"
+			e.g. \"/Volumes/NFSDrive/Backups\""
+
+EOF
+
 }
 
 # Set Path to internal drive
@@ -69,7 +61,7 @@ while getopts :v:q:r:u:h opt; do
 		r) DS_REPOSITORY_PATH="$OPTARG/Backups/$UNIQUE_ID";;
 		u) DS_USER_PATH="$OPTARG";;
 		h) 
-			printHELP
+			help
 			exit 0;;
 		\?)
 			echo "Usage: `basename $0` [-v Target Volume ] [-q MAC Address of target machine] [-r Backup Repository ]"

@@ -7,51 +7,37 @@
 # Uses the directories in the /Users folder of the target machine to back up data, user account details, and password.
 # Use accompanying ds_restore_data.sh to pur users and user folders back onto new image after restoring image.
 
-# Easier to read
-# -e Users to Skip
-# 		Must use quotes for multiple users
-# 		Default is guest and shared
-# 			You must specify guest and
-# 			shared if your use the argument
-# -v Target volume
-# 		Specify full path to mount point of volume
-# 		Default is the internal volume
-# -u User path on target
-# 		Set to path of users on volume
-# 		Default is /Users
-# -d Backup destination
-# 		Specify full path to the backup volume
-# 		Default is /tmp/DSNetworkRepository
-# -t Backup tool (tar) - Still working on this one!
-# 		Select backup software, Default tar
-# 		tar = Use tar with gzip to backup.
+function help {
+    cat<<EOF
 
-function printHELP {
-echo -e "Usage: `basename $0` [ -e \"guest admin shared\" ] [ -v \"/Volumes/Macintosh HD\" ] [ -u /Users ] [ -d \"/Volumes/External Drive/\" ] [ -t tar ]"
-echo -e "Variables can be set in DeployStudio variables window when running script."
-echo -e "BackupRestore Variables:"
-echo -e "-q Unique Identifier. Should be left empty."
-echo -e "-e Users to Skip - Doesn't Work."
-echo -e "		Must use quotes for multiple users"
-echo -e "		Default is \"guest\" and \"shared\""
-echo -e "			You must specify \"guest\" and"
-echo -e "			\"shared\" if your use the argument"
-echo -e "-v Target volume"
-echo -e "		Specify full path to mount point of volume"
-echo -e "		Default is the internal volume"
-echo -e "		e.g. \"\"/Volumes\/Macintosh HD\""
-echo -e "-u User path on target"
-echo -e "		Set to path of users on volume"
-echo -e "		Default is /Users"
-echo -e "-d Backup destination"
-echo -e "		Specify full path to the backup volume"
-echo -e "		Default is /tmp/DSNetworkRepository"
-echo -e "-t Backup tool (tar) - Still working on this one!"
-echo -e "		Select backup software, Default tar"
-echo -e "		tar = Use tar with gzip to backup."
-echo -e "		ditto and rsync not working, yet!"
-echo -e "		-removed- ditto = Use ditto with gzip to backup"
-echo -e "		-removed- rsync = Use rsync to backup"
+    Usage: `basename $0` [ -e "guest admin shared" ] [ -v "/Volumes/Macintosh HD" ] [ -u /Users ] [ -d "/Volumes/External Drive/" ] [ -t tar ]
+    Variables can be set in DeployStudio variables window when running script.
+    BackupRestore Variables:
+    -q Unique Identifier. Should be left empty.
+    -e Users to Skip - Doesn't Work.
+            Must use quotes for multiple users
+            Default is "guest" and "shared"
+                You must specify "guest" and
+                "shared" if your use the argument
+    -v Target volume
+            Specify full path to mount point of volume
+            Default is the internal volume
+            e.g. /Volumes/Macintosh HD
+    -u User path on target
+            Set to path of users on volume
+            Default is /Users
+    -d Backup destination
+            Specify full path to the backup volume
+            Default is /tmp/DSNetworkRepository
+    -t Backup tool (tar) - Still working on this one!
+            Select backup software, Default tar
+            tar = Use tar with gzip to backup.
+            ditto and rsync not working, yet!
+            -removed- ditto = Use ditto with gzip to backup
+            -removed- rsync = Use rsync to backup
+    
+EOF
+
 }
 
 #Variables:
@@ -80,7 +66,7 @@ while getopts :e:v:u:d:t:h opt; do
 		d) DS_REPOSITORY_BACKUPS="$OPTARG/Backups/$UNIQUE_ID";;
 		t) BACKUP_TOOL="$OPTARG";;
 		h) 
-			printHELP
+			help
 			exit 0;;
 		\?)
 			echo "Usage: `basename $0` [-e Excluded Users] [-v Target Volume] [-u User Path] [-d Destination Volume] [ -t Backup Tool ]"
@@ -90,7 +76,7 @@ while getopts :e:v:u:d:t:h opt; do
 done
 shift `expr $OPTIND - 1`
 		
-echo -e "Backup Arguements"
+echo -e "Backup Arguments"
 echo -e "Unique ID:				$UNIQUE_ID"
 echo -e "Excluded users:		${EXCLUDE[@]}"
 echo -e "Target Volume:			$DS_INTERNAL_DRIVE"
@@ -167,7 +153,7 @@ do
 			# 	;;
 			* )
 			echo "RuntimeAbortWorkflow: Backup Choice: $BACKUP_TOOL. Invalid flag, no such tool...exiting." 
-			printHELP
+			help
 			exit 1
 				;;
 		esac
