@@ -55,7 +55,6 @@ export DS_USER_PATH="/Users"
 # Default backup tool
 export BACKUP_TOOL="tar"
 
-
 # Parse command line arguments
 while getopts :e:v:u:d:t:h opt; do
 	case "$opt" in
@@ -127,7 +126,7 @@ do
 		DS_BACKUP="$DS_INTERNAL_DRIVE$DS_USER_PATH/$USERZ"
 		DS_ARCHIVE="$DS_REPOSITORY_BACKUPS/$USERZ.HOME"
 		DS_BACKUP_PLIST="$DS_REPOSITORY_BACKUPS/$USERZ.BACKUP.plist"
-			
+		
 		case $BACKUP_TOOL in
 			tar )
 			# Backup users with tar
@@ -204,6 +203,15 @@ do
 	fi 
 done
 
+# Backup Filevault Keychains
+if [[ -e "$DS_INTERNAL_DRIVE/Library/Keychains/FileVaultMaster.cer" ]]; then
+	echo -e "\tbacking up FileVault Master Keychains"
+	/usr/bin/tar -czpf "$FilevaultKeys.tar" "$DS_INTERNAL_DRIVE/Library/Keychains/FileVaultMaster.cer" "$DS_INTERNAL_DRIVE/Library/Keychains/FileVaultMaster.keychain" && echo -e "Master Keychains successfully backed up using tar" %>/dev/null || echo -e "Could not back up master keychains"
+else
+	echo -e "\tNo FileVault Master Keychains found"
+fi
+
+
 echo "educ_backup_data.sh - end"
 exit 0
 
@@ -215,6 +223,9 @@ exit 0
 # 	dscl . read /Users/file HomeDirectory | awk '{print $2}'
 # 	Backup sparseimage
 # 	/Users/file/file.sparsebundle
+# 	Backup keychain master passwords and cert
+# 	/Library/Keychain/FileVaultMaster.cer
+# 	/Library/Keychain/FileVaultMaster.keychain
 # 	Recreate user - Wonder if its necessary to restore the accounts?
 # 	/System/Library/CoreServices/ManagedClient.app/Contents/Resources/createmobileaccount -n usershortname
 # 	Restore sparesimage

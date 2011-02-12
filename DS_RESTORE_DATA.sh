@@ -93,6 +93,12 @@ then
 	exit 0;
 fi
 
+# Check for filevault backup
+if [[ -e "$DS_REPOSITORY_BACKUPS/FilevaultKeys.tar" ]]; then
+	echo -e "Restoring Filevault Keychains"
+	/usr/bin/tar -xf "$DS_REPOSITORY_BACKUPS/FilevaultKeys.tar" -C "$DS_LAST_RESTORED_VOLUME/" # --strip-components=3
+fi
+
 for i in "$DS_REPOSITORY_BACKUPS/"*USER.plist; do
 	# Restore User Account
 	USERZ=`echo $(basename $i)|awk -F'.' '{print $1}'`
