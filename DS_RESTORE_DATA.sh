@@ -71,6 +71,16 @@ while getopts :v:q:r:u:h opt; do
 done
 shift `expr $OPTIND - 1`
 
+echo -e "Restore Arguments"
+echo -e "Last Restored Volume:		$DS_LAST_RESTORED_VOLUME"
+echo -e "Unique ID:					$UNIQUE_ID"
+echo -e "User Path on target:		$DS_USER_PATH"
+echo -e "Restore Repository: 		$DS_REPOSITORY_PATH"
+echo -e "Internal Drive:			$DS_INTERNAL_DRIVE"
+echo -e "Backup Count:				$DS_BACKUP_COUNT"
+
+
+
 function RUNTIME_ABORT {
 # Usage:
 # argument 1 is error message
@@ -83,7 +93,7 @@ else
 fi
 }
 
-echo "educ_restore_data.sh - v0.4.4 beta ("`date`")"
+echo "educ_restore_data.sh - v0.4.5 beta ("`date`")"
 
 # Check if any backups exist for this computer.  If not, exit cleanly. - Contributed by Rhon Fitzwater
 if [ $DS_BACKUP_COUNT -lt 1 ] 
@@ -94,6 +104,7 @@ then
 fi
 
 # Check for filevault backup
+# Not used yet
 if [[ -e "$DS_REPOSITORY_BACKUPS/FilevaultKeys.tar" ]]; then
 	echo -e "Restoring Filevault Keychains"
 	/usr/bin/tar -xf "$DS_REPOSITORY_BACKUPS/FilevaultKeys.tar" -C "$DS_LAST_RESTORED_VOLUME/" # --strip-components=3
@@ -112,11 +123,16 @@ for i in "$DS_REPOSITORY_BACKUPS/"*USER.plist; do
 	if [[ "$i" =~ "NETUSER" ]]; then
 		## Add user to admin
 		# Check if user is Admin
+		echo -e "\tNetwork User:"
+		echo -e "\taccount skipped"
+		echo -e "\tpassword skipped"
 		if [[ `"$DS_INTERNAL_DRIVE/usr/libexec/PlistBuddy" -c "print :isAdmin" "$DS_REPOSITORY_BACKUPS/$USERZ.NETUSER.plist"` = "yes" ]]; then
 			"$dscl" -f "$INTERNAL_DN" localonly -merge "/Local/Target/Groups/admin" "GroupMembership" "$USERZ"
+			echo -e "	admin rights restored"
 		fi
 		
 	else
+		echo -e "\tLocal User:"
 		DS_BACKUP_PLIST="$DS_REPOSITORY_BACKUPS/$USERZ.USER.plist"
 		# Get all the users info
 		GenUID=`"$DS_INTERNAL_DRIVE/usr/libexec/PlistBuddy" -c "print :dsAttrTypeNative\:generateduid:0" "$DS_BACKUP_PLIST"`
@@ -144,14 +160,7 @@ for i in "$DS_REPOSITORY_BACKUPS/"*USER.plist; do
 	 	"$dscl" -f "$INTERNAL_DN" localonly -create "/Local/Target/Users/$USERZ" passwd "*"
 		"$dscl" -f "$INTERNAL_DN" localonly -create "/Local/Target/Users/$USERZ" shell "${ShellPath}"
 		"$dscl" -f "$INTERNAL_DN" localonly -create "/Local/Target/Users/$USERZ" generateduid  "${GenUID}"
-	
-		# Add user to admin
-		# Check if user is Admin
-		if [[ `"$DS_INTERNAL_DRIVE/usr/libexec/PlistBuddy" -c "print :isAdmin" "$DS_BACKUP_PLIST"` = "yes" ]]; then
-			"$dscl" -f "$INTERNAL_DN" localonly -merge "/Local/Target/Groups/admin" "GroupMembership" "$USERZ"
-			"$dscl" -f "$INTERNAL_DN" localonly -merge "/Local/Target/Groups/admin" "GroupMembers" "$GenUID"
-		fi
-	
+
 		# Restore password hash
 		if [[ -e "$DS_REPOSITORY_BACKUPS/$USERZ.$GenUID" ]]; then
 			if [[ ! -d "$DS_LAST_RESTORED_VOLUME/var/db/shadow/hash/" ]]; then
@@ -161,6 +170,14 @@ for i in "$DS_REPOSITORY_BACKUPS/"*USER.plist; do
 			fi
 			/bin/cp "$DS_REPOSITORY_BACKUPS/$USERZ.$GenUID" "$DS_LAST_RESTORED_VOLUME/var/db/shadow/hash/$GenUID" && echo -e "\tpassword restored successfully"
 			/bin/chmod 600 "$DS_LAST_RESTORED_VOLUME/var/db/shadow/hash/$GenUID"
+		fi
+			
+		# Add user to admin
+		# Check if user is Admin
+		if [[ `"$DS_INTERNAL_DRIVE/usr/libexec/PlistBuddy" -c "print :isAdmin" "$DS_BACKUP_PLIST"` = "yes" ]]; then
+			"$dscl" -f "$INTERNAL_DN" localonly -merge "/Local/Target/Groups/admin" "GroupMembership" "$USERZ"
+			"$dscl" -f "$INTERNAL_DN" localonly -merge "/Local/Target/Groups/admin" "GroupMembers" "$GenUID"
+			echo -e "\tadmin rights restored"
 		fi
 	fi
 done
@@ -177,7 +194,7 @@ case $RESTORE_TOOL in
 		for i in "$DS_REPOSITORY_BACKUPS"/*.tar; do
 			USERZ=`echo $(basename $i)|awk -F'.' '{print $1}'`
 			echo "Restoring $USERZ user directory with tar"
-			echo "$i" "$DS_LAST_RESTORED_VOLUME/Users/"
+			echo "Restore From: $i" "Restore To: $DS_LAST_RESTORED_VOLUME/Users/"
 			/usr/bin/tar -xf "$i" -C "$DS_LAST_RESTORED_VOLUME$DS_USER_PATH/" --strip-components=3
 			RUNTIME_ABORT "RuntimeAbortWorkflow: Could not restore home folder for $USERZ using tar...exiting." "\thome restored successfully"
 		done
@@ -210,6 +227,10 @@ exit 0
 
 ## Changes
 #
+# Friday, March 18, 2011 - v0.4.5
+# 	- Added better logging
+# 	- Stabalized the script
+# 
 # Wednesday, Febuary 09, 2011 - v0.4.4
 # 	- Adding to git
 # 	- Added restore support for rsync

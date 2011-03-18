@@ -32,7 +32,7 @@ function help {
     -t Backup tool (tar) - Still working on this one!
             Select backup software, Default tar
             tar = Use tar with gzip to backup.
-            ditto and rsync not working, yet!
+            ditto and rsync NOT WORKING, yet!
             -removed- ditto = Use ditto with gzip to backup
             -removed- rsync = Use rsync to backup
     
@@ -43,7 +43,7 @@ EOF
 #Variables:
 # Ignore these accounts or folders in /Users (use lowercase):
 # Shared folder is excluded using "shared"
-export EXCLUDE=( "shared" "guest" "etcadmin" "ldf11" "alumni" )
+export EXCLUDE=( "shared" "guest" "etcadmin" "jeb6" )
 # Unique ID for plist and common variable for scripts
 export UNIQUE_ID=`echo "$DS_PRIMARY_MAC_ADDRESS"|tr -d ':'` # Add Times? UNIQUE_ID=`date "+%Y%m%d%S"`
 # DS Script to backup user data with tar to Backups folder on repository.
@@ -95,7 +95,7 @@ else
 fi
 }
 
-echo "educ_backup_data.sh - v0.4.4 beta ("`date`")"
+echo "educ_backup_data.sh - v0.4.5 beta ("`date`")"
 
 # Check that the backups folder is there
 if [[ ! -d "$DS_REPOSITORY_PATH/Backups" ]]; then
@@ -166,7 +166,7 @@ do
 		# if [[ "$UserID" -gt "1000" ]]; then
 		## May be new way to do this		if [[ ! "`id -Gn`" =~ localaccounts ]]; then
 		# Check dscl for "OriginalNodeName" if its a mobile account. if the account doesn't exist, its a network account
-		if [[ `"$dscl" -f "$INTERNAL_DN" localonly -read "/Local/Target/Users/$USERZ" dsAttrTypeStandard:OriginalNodeName|grep -E "^OriginalNodeName:"` || ! `"$dscl" -f "$INTERNAL_DN" localonly -read "/Local/Target/Users/$USERZ" dsAttrTypeStandard:OriginalNodeName` ]]; then
+		if [[ `"$dscl" -f "$INTERNAL_DN" localonly -read "/Local/Target/Users/$USERZ" dsAttrTypeStandard:OriginalNodeName|grep -E "^OriginalNodeName:"` ]]; then
 			# User data backup plist
 			DS_USER_BACKUP_PLIST="$DS_REPOSITORY_BACKUPS/$USERZ.NETUSER.plist"
 			echo -e "\taccount excluded: network account"
@@ -223,9 +223,9 @@ exit 0
 # 	dscl . read /Users/file HomeDirectory | awk '{print $2}'
 # 	Backup sparseimage
 # 	/Users/file/file.sparsebundle
-# 	Backup keychain master passwords and cert
-# 	/Library/Keychain/FileVaultMaster.cer
-# 	/Library/Keychain/FileVaultMaster.keychain
+# 	- Backup keychain master passwords and cert
+# 	- /Library/Keychain/FileVaultMaster.cer
+# 	- /Library/Keychain/FileVaultMaster.keychain
 # 	Recreate user - Wonder if its necessary to restore the accounts?
 # 	/System/Library/CoreServices/ManagedClient.app/Contents/Resources/createmobileaccount -n usershortname
 # 	Restore sparesimage
@@ -233,6 +233,9 @@ exit 0
 
 ## Changes
 #
+# Friday, March 18, 2011 - v0.4.5
+# 	- Changed test for mobile/network accounts, again. Now seems to work!
+# 
 # Wednesday, Febuary 09, 2011 - v0.4.4
 # 	- Adding to git
 # 	- Added rsync as an backup tool option
