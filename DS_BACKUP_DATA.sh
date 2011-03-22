@@ -251,7 +251,7 @@ exit 0
 # 	- Removed extra plist created with backup tool name. If I need this, I'll use the same plist as the user details.
 # 	- Added AuthenticationAuthority and HomeDirectory to plist backup
 # 	- Some dscl and PlistBuddy errors show when running scripts, this is normal.
-# 	- Addded "Deleted Users" folder to exclude list
+# 	- Added "deleted users" folder to exclude list
 # 
 # Friday, March 18, 2011 - v0.4.5
 # 	- Changed test for mobile/network accounts, again. Now seems to work!
