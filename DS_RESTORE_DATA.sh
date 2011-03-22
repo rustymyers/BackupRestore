@@ -52,7 +52,6 @@ export DS_BACKUP_COUNT=`/bin/ls -l "$DS_REPOSITORY_BACKUPS" | grep -E '*.tar|*.c
 # Set Path to the folder with home folders
 export DS_USER_PATH="/Users"
 
-
 while getopts :v:q:r:u:h opt; do
 	case "$opt" in
 		# e) EXCLUDE="$OPTARG";;
@@ -71,13 +70,14 @@ while getopts :v:q:r:u:h opt; do
 done
 shift `expr $OPTIND - 1`
 
-echo -e "Restore Arguments"
-echo -e "Last Restored Volume:		$DS_LAST_RESTORED_VOLUME"
-echo -e "Unique ID:					$UNIQUE_ID"
-echo -e "User Path on target:		$DS_USER_PATH"
-echo -e "Restore Repository: 		$DS_REPOSITORY_PATH"
-echo -e "Internal Drive:			$DS_INTERNAL_DRIVE"
-echo -e "Backup Count:				$DS_BACKUP_COUNT"
+# Uncomment this section when you want to see the variables in the log. Great for troubleshooting. 
+# echo -e "Restore Arguments"
+# echo -e "Last Restored Volume:		$DS_LAST_RESTORED_VOLUME"
+# echo -e "Unique ID:					$UNIQUE_ID"
+# echo -e "User Path on target:		$DS_USER_PATH"
+# echo -e "Restore Repository: 		$DS_REPOSITORY_PATH"
+# echo -e "Internal Drive:			$DS_INTERNAL_DRIVE"
+# echo -e "Backup Count:				$DS_BACKUP_COUNT"
 
 
 
@@ -105,11 +105,14 @@ fi
 
 # Check for filevault backup
 # Not used yet
-if [[ -e "$DS_REPOSITORY_BACKUPS/FilevaultKeys.tar" ]]; then
+if [[ -e "$DS_REPOSITORY_BACKUPS/FilevaultKeys.tar" && ! -e "$DS_LAST_RESTORED_VOLUME/Library/Keychains/FileVaultMaster.cer" ]]; then
 	echo -e "Restoring Filevault Keychains"
-	/usr/bin/tar -xf "$DS_REPOSITORY_BACKUPS/FilevaultKeys.tar" -C "$DS_LAST_RESTORED_VOLUME/" # --strip-components=3
+	/usr/bin/tar -xf "$DS_REPOSITORY_BACKUPS/FilevaultKeys.tar" -C "$DS_LAST_RESTORED_VOLUME/" --strip-components=2
+else
+	echo -e "Existing Filevault Keychains - Restore skipped"
 fi
 
+# Scan user folder
 for i in "$DS_REPOSITORY_BACKUPS/"*USER.plist; do
 	# Restore User Account
 	USERZ=`echo $(basename $i)|awk -F'.' '{print $1}'`
@@ -121,21 +124,111 @@ for i in "$DS_REPOSITORY_BACKUPS/"*USER.plist; do
 	echo -e "Restoring $USERZ"
 	
 	if [[ "$i" =~ "NETUSER" ]]; then
+		# Backup plist variable
+		DS_BACKUP_PLIST="$DS_REPOSITORY_BACKUPS/$USERZ.NETUSER.plist"
 		## Add user to admin
 		# Check if user is Admin
 		echo -e "\tNetwork User:"
-		echo -e "\taccount skipped"
 		echo -e "\tpassword skipped"
+		# Create basics for fielvault....might not have to, but we will try.
+		# uid generateduid shortname
+		if [[ `"$DS_INTERNAL_DRIVE/usr/libexec/PlistBuddy" -c "print :dsAttrTypeStandard\:HomeDirectory:0" "$DS_BACKUP_PLIST"` ]]; then
+		# if [[ $HomeDir ]]; then
+			echo -e "\tfilevault on"
+			echo -e "\tminimum account details restored"
+			# Attempting to write a firstboot script to restore filevault account
+			echo -e "\tfirst boot scripts installed to restore filevault accounts."
+			echo -e "\tafter directory services is set up, you need to restart again for the account to be created."
+			# Write plist to start script at first boot
+			echo -e "
+<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>Label</key>
+	<string>deploystudio.filevaultuser.$USERZ</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/etc/restoremobilefilevault.$USERZ.sh</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+</dict>
+</plist>
+" > "$DS_INTERNAL_DRIVE/Library/LaunchDaemons/deploystudio.filevaultuser.$USERZ.plist"
+			chown root:wheel "$DS_INTERNAL_DRIVE/Library/LaunchDaemons/deploystudio.filevaultuser.$USERZ.plist"
+			chmod 644 "$DS_INTERNAL_DRIVE/Library/LaunchDaemons/deploystudio.filevaultuser.$USERZ.plist"
+			
+			# Write script to run at first boot
+			echo -e "
+#!/bin/bash
+# Writing a new script in a larger script to restore filevault users on new machines...
+echo -e \"Waiting for network to be ready\"
+/usr/sbin/networksetup -detectnewhardware
+sleep 120
+
+# try to ID user, fail out if it doesn't. Maybe unload the launchd item, wait for reboot to try again.
+if [[ \`id $USERZ\` ]]; then
+	# Directory Services must be set up, lets recreate the account.
+	# Create mobile account once were bound to DS
+	/System/Library/CoreServices/ManagedClient.app/Contents/Resources/createmobileaccount -n \"$USERZ\"
+
+	# Update new user record with filevault home
+	HomeDir=\`/usr/libexec/PlistBuddy -c \"print :dsAttrTypeStandard\:HomeDirectory:0\" \"/etc/$USERZ.plist\"\`
+	/usr/bin/dscl . create /Users/$USERZ HomeDirectory \"\${HomeDir}\"
+	
+	# Clean up
+	rm \"/Library/LaunchDaemons/deploystudio.filevaultuser.$USERZ.plist\"
+	rm \"/etc/$USERZ.plist\"
+	rm $0
+	sudo reboot
+else
+	# Directory Services must not be set up yet.
+	# Unload the plist and wait for the next boot
+	/bin/launchctl unload \"/Library/LaunchDaemons/deploystudio.filevaultuser.$USERZ.plist\"
+	echo \"Directory Services not set up yet. Exiting\"
+	exit 1
+fi" > "$DS_INTERNAL_DRIVE/etc/restoremobilefilevault.$USERZ.sh"
+			chown root:admin "$DS_INTERNAL_DRIVE/etc/restoremobilefilevault.$USERZ.sh"
+			chmod 750 "$DS_INTERNAL_DRIVE/etc/restoremobilefilevault.$USERZ.sh"
+			
+			# Write computer details to plist
+			/bin/cp "$DS_BACKUP_PLIST" "$DS_INTERNAL_DRIVE/etc/$USERZ.plist"
+			chown root:admin "$DS_INTERNAL_DRIVE/etc/$USERZ.plist"
+			chmod 550 "$DS_INTERNAL_DRIVE/etc/$USERZ.plist"
+			
+			## BELOW: Tried to add records needed, but mobile account couldn't recreate itself then. Account needs created first.
+			# UserUID=`"$DS_INTERNAL_DRIVE/usr/libexec/PlistBuddy" -c "print :dsAttrTypeNative\:uid:0" "$DS_BACKUP_PLIST"` &>/dev/null
+			# GenUID=`"$DS_INTERNAL_DRIVE/usr/libexec/PlistBuddy" -c "print :dsAttrTypeNative\:generateduid:0" "$DS_BACKUP_PLIST"` &>/dev/null
+			# HomeDir=`"$DS_INTERNAL_DRIVE/usr/libexec/PlistBuddy" -c "print :dsAttrTypeStandard\:HomeDirectory:0" "$DS_BACKUP_PLIST"` &>/dev/null
+			# NFSHome=`"$DS_INTERNAL_DRIVE/usr/libexec/PlistBuddy" -c "print :NFSHomeDirectory:0" "$DS_BACKUP_PLIST"` &>/dev/null
+			# AuthAuth=`"$DS_INTERNAL_DRIVE/usr/libexec/PlistBuddy" -c "print :dsAttrTypeNative\:AuthenticationAuthority:0" "$DS_BACKUP_PLIST"` &>/dev/null
+			# # RecordName=`"$DS_INTERNAL_DRIVE/usr/libexec/PlistBuddy" -c "print :dsAttrTypeStandard\:RecordName:0" "$DS_BACKUP_PLIST"` &>/dev/null
+			# # Only write user details if user has filevault
+			# # Write User Details to imaged computer
+			# "$dscl" -f "$INTERNAL_DN" localonly -create "/Local/Target/Users/$USERZ" && echo -e "\taccount created successfully" || echo "RuntimeAbortWorkflow: Could not create $USERZ...exiting."
+			# # Write remaining details	 	
+			# "$dscl" -f "$INTERNAL_DN" localonly -create "/Local/Target/Users/$USERZ" UniqueID "${UserUID}"
+			# "$dscl" -f "$INTERNAL_DN" localonly -create "/Local/Target/Users/$USERZ" generateduid  "${GenUID}"
+			# # "$dscl" -f "$INTERNAL_DN" localonly -create "/Local/Target/Users/$USERZ" RecordName "${RecordName}"
+			# "$dscl" -f "$INTERNAL_DN" localonly -create "/Local/Target/Users/$USERZ" AuthenticationAuthority "${AuthAuth}"
+			# "$dscl" -f "$INTERNAL_DN" localonly -create "/Local/Target/Users/$USERZ" HomeDirectory "${HomeDir}" &>/dev/null
+			# "$dscl" -f "$INTERNAL_DN" localonly -create "/Local/Target/Users/$USERZ" NFSHomeDirectory "${NFSHome}" &>/dev/null
+		else
+			echo -e "\tfilevault off"
+		fi
+		
+		# Restore admin rights
 		if [[ `"$DS_INTERNAL_DRIVE/usr/libexec/PlistBuddy" -c "print :isAdmin" "$DS_REPOSITORY_BACKUPS/$USERZ.NETUSER.plist"` = "yes" ]]; then
 			"$dscl" -f "$INTERNAL_DN" localonly -merge "/Local/Target/Groups/admin" "GroupMembership" "$USERZ"
 			echo -e "	admin rights restored"
-		fi
-		
+		fi	
 	else
 		echo -e "\tLocal User:"
 		DS_BACKUP_PLIST="$DS_REPOSITORY_BACKUPS/$USERZ.USER.plist"
 		# Get all the users info
 		GenUID=`"$DS_INTERNAL_DRIVE/usr/libexec/PlistBuddy" -c "print :dsAttrTypeNative\:generateduid:0" "$DS_BACKUP_PLIST"`
+		HomeDir=`"$DS_INTERNAL_DRIVE/usr/libexec/PlistBuddy" -c "print :dsAttrTypeStandard\:HomeDirectory:0" "$DS_BACKUP_PLIST"` &>/dev/null
 		HomeFolder=`"$DS_INTERNAL_DRIVE/usr/libexec/PlistBuddy" -c "print :dsAttrTypeNative\:home:0" "$DS_BACKUP_PLIST"`
 		PicturePath=`"$DS_INTERNAL_DRIVE/usr/libexec/PlistBuddy" -c "print :dsAttrTypeNative\:picture:0" "$DS_BACKUP_PLIST"`
 		ShellPath=`"$DS_INTERNAL_DRIVE/usr/libexec/PlistBuddy" -c "print :dsAttrTypeNative\:shell:0" "$DS_BACKUP_PLIST"`
@@ -160,7 +253,8 @@ for i in "$DS_REPOSITORY_BACKUPS/"*USER.plist; do
 	 	"$dscl" -f "$INTERNAL_DN" localonly -create "/Local/Target/Users/$USERZ" passwd "*"
 		"$dscl" -f "$INTERNAL_DN" localonly -create "/Local/Target/Users/$USERZ" shell "${ShellPath}"
 		"$dscl" -f "$INTERNAL_DN" localonly -create "/Local/Target/Users/$USERZ" generateduid  "${GenUID}"
-
+		"$dscl" -f "$INTERNAL_DN" localonly -create "/Local/Target/Users/$USERZ" HomeDirectory "${HomeDir}" &>/dev/null
+		
 		# Restore password hash
 		if [[ -e "$DS_REPOSITORY_BACKUPS/$USERZ.$GenUID" ]]; then
 			if [[ ! -d "$DS_LAST_RESTORED_VOLUME/var/db/shadow/hash/" ]]; then
@@ -187,35 +281,35 @@ done
 # for i in "$DS_REPOSITORY_BACKUPS/"*HOME*; do
 # Get backup tool
 
-RESTORE_TOOL=`"$DS_INTERNAL_DRIVE/usr/libexec/PlistBuddy" -c "print :backuptool" "$DS_REPOSITORY_BACKUPS/$USERZ.BACKUP.plist"`
+# RESTORE_TOOL=`"$DS_INTERNAL_DRIVE/usr/libexec/PlistBuddy" -c "print :backuptool" "$DS_REPOSITORY_BACKUPS/$USERZ.BACKUP.plist"`
 
-case $RESTORE_TOOL in
-	tar )
-		for i in "$DS_REPOSITORY_BACKUPS"/*.tar; do
+# case $RESTORE_TOOL in
+# 	tar )
+		for i in "$DS_REPOSITORY_BACKUPS"/*HOME.tar; do
 			USERZ=`echo $(basename $i)|awk -F'.' '{print $1}'`
 			echo "Restoring $USERZ user directory with tar"
 			echo "Restore From: $i" "Restore To: $DS_LAST_RESTORED_VOLUME/Users/"
 			/usr/bin/tar -xf "$i" -C "$DS_LAST_RESTORED_VOLUME$DS_USER_PATH/" --strip-components=3
 			RUNTIME_ABORT "RuntimeAbortWorkflow: Could not restore home folder for $USERZ using tar...exiting." "\thome restored successfully"
 		done
-		;;
-	ditto )
-		for i in "$DS_REPOSITORY_BACKUPS"/*cpio.gz; do
-			USERZ=`echo $(basename $i)|awk -F'.' '{print $1}'`
-			echo "Restoring $USERZ user directory with ditto"
-			/usr/bin/ditto -x "$i" "$DS_LAST_RESTORED_VOLUME$DS_USER_PATH/"
-			RUNTIME_ABORT "RuntimeAbortWorkflow: Could not restore home folder for $USERZ using ditto...exiting." "\thome restored successfully"
-		done
-		;;
-	rsync )
-		for i in "$DS_REPOSITORY_BACKUPS"/*rsync; do
-			USERZ=`echo $(basename $i)|awk -F'.' '{print $1}'`
-			echo "Restoring $USERZ user directory with rsync"
-			/usr/bin/rsync -av --update "$i/$USERZ" "$DS_LAST_RESTORED_VOLUME$DS_USER_PATH"
-			RUNTIME_ABORT "RuntimeAbortWorkflow: Could not restore home folder for $USERZ using rsync...exiting." "\thome restored successfully"
-		done
-		;;
-esac
+# 		;;
+# 	ditto )
+# 		for i in "$DS_REPOSITORY_BACKUPS"/*cpio.gz; do
+# 			USERZ=`echo $(basename $i)|awk -F'.' '{print $1}'`
+# 			echo "Restoring $USERZ user directory with ditto"
+# 			/usr/bin/ditto -x "$i" "$DS_LAST_RESTORED_VOLUME$DS_USER_PATH/"
+# 			RUNTIME_ABORT "RuntimeAbortWorkflow: Could not restore home folder for $USERZ using ditto...exiting." "\thome restored successfully"
+# 		done
+# 		;;
+# 	rsync )
+# 		for i in "$DS_REPOSITORY_BACKUPS"/*rsync; do
+# 			USERZ=`echo $(basename $i)|awk -F'.' '{print $1}'`
+# 			echo "Restoring $USERZ user directory with rsync"
+# 			/usr/bin/rsync -av --update "$i/$USERZ" "$DS_LAST_RESTORED_VOLUME$DS_USER_PATH"
+# 			RUNTIME_ABORT "RuntimeAbortWorkflow: Could not restore home folder for $USERZ using rsync...exiting." "\thome restored successfully"
+# 		done
+# 		;;
+# esac
 
 echo "educ_restore_data.sh - end"
 exit 0
@@ -227,6 +321,13 @@ exit 0
 
 ## Changes
 #
+# Tuesday, March 22, 2011 - v0.4.6
+# 	- Fix home restore to only restore *HOME.tar files
+# 	- Only restore filevault keychains when they don't exist on target
+# 	- Added restore for local accounts with filevault within script
+# 	- Added restore for mobile accounts with filevault using first boot scripts
+# 	- Removed ditto and rsync backup functions
+# 
 # Friday, March 18, 2011 - v0.4.5
 # 	- Added better logging
 # 	- Stabalized the script
