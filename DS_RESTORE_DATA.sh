@@ -70,16 +70,22 @@ while getopts :v:q:r:u:h opt; do
 done
 shift `expr $OPTIND - 1`
 
+# Set Variables that are dependent on getopts
+# Set path to dscl
+export dscl="$DS_LAST_RESTORED_VOLUME/usr/bin/dscl"
+# Internal Drive directory node
+export INTERNAL_DN="$DS_LAST_RESTORED_VOLUME/var/db/dslocal/nodes/Default"
+
 # Uncomment this section when you want to see the variables in the log. Great for troubleshooting. 
-# echo -e "Restore Arguments"
-# echo -e "Last Restored Volume:		$DS_LAST_RESTORED_VOLUME"
-# echo -e "Unique ID:					$UNIQUE_ID"
-# echo -e "User Path on target:		$DS_USER_PATH"
-# echo -e "Restore Repository: 		$DS_REPOSITORY_PATH"
-# echo -e "Internal Drive:			$DS_INTERNAL_DRIVE"
-# echo -e "Backup Count:				$DS_BACKUP_COUNT"
-
-
+echo -e "Restore Arguments"
+echo -e "Last Restored Volume:		$DS_LAST_RESTORED_VOLUME"
+echo -e "Unique ID:					$UNIQUE_ID"
+echo -e "User Path on target:		$DS_USER_PATH"
+echo -e "Restore Repository: 		$DS_REPOSITORY_PATH"
+echo -e "Internal Drive:			$DS_INTERNAL_DRIVE"
+echo -e "Backup Count:				$DS_BACKUP_COUNT"
+echo -e "dscl path:					$dscl"
+echo -e "Internal Directory:		$INTERNAL_DN"
 
 function RUNTIME_ABORT {
 # Usage:
@@ -93,7 +99,7 @@ else
 fi
 }
 
-echo "educ_restore_data.sh - v0.4.5 beta ("`date`")"
+echo "educ_restore_data.sh - v0.4.7 beta ("`date`")"
 
 # Check if any backups exist for this computer.  If not, exit cleanly. - Contributed by Rhon Fitzwater
 if [ $DS_BACKUP_COUNT -lt 1 ] 
@@ -116,11 +122,7 @@ fi
 for i in "$DS_REPOSITORY_BACKUPS/"*USER.plist; do
 	# Restore User Account
 	USERZ=`echo $(basename $i)|awk -F'.' '{print $1}'`
-	# Set path to dscl
-	export dscl="$DS_LAST_RESTORED_VOLUME/usr/bin/dscl"
-	# Internal Drive directory node
-	export INTERNAL_DN="$DS_LAST_RESTORED_VOLUME/var/db/dslocal/nodes/Default"
-	
+
 	echo -e "Restoring $USERZ"
 	
 	if [[ "$i" =~ "NETUSER" ]]; then
@@ -321,6 +323,9 @@ exit 0
 
 ## Changes
 #
+# Monday, March, 28, 2011 - v0.4.7
+# 	- Moved dscl and internal directory variables outside and above for loop. 
+# 
 # Tuesday, March 22, 2011 - v0.4.6
 # 	- Fix home restore to only restore *HOME.tar files
 # 	- Only restore filevault keychains when they don't exist on target

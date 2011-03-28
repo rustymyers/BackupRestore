@@ -77,14 +77,23 @@ while getopts :e:v:u:d:t:h opt; do
 done
 shift `expr $OPTIND - 1`
 
+# Set Variables that are dependent on getopts
+# Set path to dscl
+export dscl="$DS_INTERNAL_DRIVE/usr/bin/dscl"
+# Internal Drive directory node
+export INTERNAL_DN="$DS_INTERNAL_DRIVE/var/db/dslocal/nodes/Default"
+
+
 # Uncomment this section when you want to see the variables in the log. Great for troubleshooting. 		
-# echo -e "Backup Arguments"
-# echo -e "Unique ID:				$UNIQUE_ID"
-# echo -e "Excluded users:		${EXCLUDE[@]}"
-# echo -e "Target Volume:			$DS_INTERNAL_DRIVE"
-# echo -e "User Path on target:	$DS_USER_PATH"
-# echo -e "Backup Destination: 	$DS_REPOSITORY_PATH"
-# echo -e "Backup tool:			$BACKUP_TOOL"
+echo -e "Backup Arguments"
+echo -e "Unique ID:				$UNIQUE_ID"
+echo -e "Excluded users:		${EXCLUDE[@]}"
+echo -e "Target Volume:			$DS_INTERNAL_DRIVE"
+echo -e "User Path on target:	$DS_USER_PATH"
+echo -e "Backup Destination: 	$DS_REPOSITORY_PATH"
+echo -e "Backup tool:			$BACKUP_TOOL"
+echo -e "dscl path:					$dscl"
+echo -e "Internal Directory:		$INTERNAL_DN"
 
 function RUNTIME_ABORT {
 # Usage:
@@ -98,7 +107,7 @@ else
 fi
 }
 
-echo "educ_backup_data.sh - v0.4.6 beta ("`date`")"
+echo "educ_backup_data.sh - v0.4.7 beta ("`date`")"
 
 # Check that the backups folder is there
 if [[ ! -d "$DS_REPOSITORY_PATH/Backups" ]]; then
@@ -157,10 +166,6 @@ do
 				;;
 		esac
 		# Backup User Account
-		# Set path to dscl
-		export dscl="$DS_INTERNAL_DRIVE/usr/bin/dscl"
-		# Internal Drive directory node
-		export INTERNAL_DN="$DS_INTERNAL_DRIVE/var/db/dslocal/nodes/Default"
 		UserID=`"$dscl" -f "$INTERNAL_DN" localonly -read "/Local/Target/Users/$USERZ" uid|awk '{print $2}'`
 		## Old way to check for network and mobile accounts. The idea is that local accounts are less than 1000 and network accounts are greater than 1000. May no hold true universally.
 		# if [[ "$UserID" -gt "1000" ]]; then #this is a mobile account
@@ -245,6 +250,9 @@ exit 0
 # Plan for "Deleted Users" folder
 
 ## Changes
+#
+# Monday, March, 28, 2011 - v0.4.7
+# 	- Moved dscl and internal directory variables outside and above for loop. 
 #
 # Tuesday, March 22, 2011 - v0.4.6
 # 	- Filevault restores done with first boot scripts
