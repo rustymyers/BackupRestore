@@ -325,6 +325,7 @@ exit 0
 #
 # Monday, March, 28, 2011 - v0.4.7
 # 	- Moved dscl and internal directory variables outside and above for loop. 
+#	- Uncommented test variables. Easier to troubleshoot the script.
 # 
 # Tuesday, March 22, 2011 - v0.4.6
 # 	- Fix home restore to only restore *HOME.tar files

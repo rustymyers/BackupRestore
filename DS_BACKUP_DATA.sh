@@ -253,7 +253,8 @@ exit 0
 #
 # Monday, March, 28, 2011 - v0.4.7
 # 	- Moved dscl and internal directory variables outside and above for loop. 
-#
+#	- Uncommented test variables. Easier to troubleshoot the script.
+# 
 # Tuesday, March 22, 2011 - v0.4.6
 # 	- Filevault restores done with first boot scripts
 # 	- Removed extra plist created with backup tool name. If I need this, I'll use the same plist as the user details.
