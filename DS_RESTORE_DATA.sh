@@ -11,26 +11,25 @@ function help {
 	
     cat<<EOF
 
-	Usage: `basename $0` [ -e \"guest admin shared\" ] [ -v \"/Volumes/Macintosh HD\" ] [ -u /Users ] [ -d \"/Volumes/External Drive/\" ] [ -t tar ]
+	Usage: `basename $0` [ -e "guest admin shared" ] [ -v "/Volumes/Macintosh HD" ] [ -u /Users ] [ -d "/Volumes/External Drive/" ] [ -t tar ]
 	Variables can be set in DeployStudio variables window when running script.
-	BackupRestore Variables:"
-	-q Unique Identifier."
-			Enter the MAC address of the backup you want to restore."
-			For example, if you backup a computer and its MAC address"
-			was: 000000000001. You can then specify that MAC as the"
-			variable to restore to a different computer. Make sure"
-			you specify the target volume if your not restoring an image."
-	-v Target volume"
-			Specify full path to mount point of volume"
-			Default is the \$DS_LAST_RESTORED_VOLUME volume"
-			e.g. \"/Volumes/Macintosh HD\""
-	-u User path on target"
-			Set to path of users on volume"
-			Default is /Users"
-	-r Backup Repository Path"
-			Set to path of the backup volume"
-			Default is the DS Repository"
-			e.g. \"/Volumes/NFSDrive/Backups\""
+	BackupRestore Variables:
+	-q Unique Identifier.
+			Enter the MAC address of the backup you want to restore.
+			For example, if you backup a computer and its MAC address
+			was: 000000000001. You can then specify that MAC as the
+			variable to restore to a different computer.
+	-v Target volume
+			Specify full path to mount point of volume
+			Default is the \$DS_LAST_RESTORED_VOLUME volume
+			e.g. "/Volumes/Macintosh HD"
+	-u User path on target
+			Set to path of users on volume
+			Default is /Users
+	-r Backup Repository Path
+			Set to path of the backup volume
+			Default is the DS Repository
+			e.g. "/Volumes/NFSDrive/Backups"
 
 EOF
 
@@ -99,7 +98,7 @@ else
 fi
 }
 
-echo "educ_restore_data.sh - v0.4.7 beta ("`date`")"
+echo "educ_restore_data.sh - v0.5 beta ("`date`")"
 
 # Check if any backups exist for this computer.  If not, exit cleanly. - Contributed by Rhon Fitzwater
 if [ $DS_BACKUP_COUNT -lt 1 ] 
@@ -109,19 +108,11 @@ then
 	exit 0;
 fi
 
-# Check for filevault backup
-# Not used yet
-if [[ -e "$DS_REPOSITORY_BACKUPS/FilevaultKeys.tar" && ! -e "$DS_LAST_RESTORED_VOLUME/Library/Keychains/FileVaultMaster.cer" ]]; then
-	echo -e "Restoring Filevault Keychains"
-	/usr/bin/tar -xf "$DS_REPOSITORY_BACKUPS/FilevaultKeys.tar" -C "$DS_LAST_RESTORED_VOLUME/" --strip-components=2
-else
-	echo -e "Existing Filevault Keychains - Restore skipped"
-fi
 
 # Scan user folder
 for i in "$DS_REPOSITORY_BACKUPS/"*USER.plist; do
 	# Restore User Account
-	USERZ=`echo $(basename $i)|awk -F'.' '{print $1}'`
+	USERZ=`echo $(basename $i)|awk -F'_' '{print $1}'`
 
 	echo -e "Restoring $USERZ"
 	
@@ -138,6 +129,15 @@ for i in "$DS_REPOSITORY_BACKUPS/"*USER.plist; do
 		# if [[ $HomeDir ]]; then
 			echo -e "\tfilevault on"
 			echo -e "\tminimum account details restored"
+			# Check for filevault backup
+			if [[ -e "$DS_REPOSITORY_BACKUPS/FilevaultKeys.tar" && ! -e "$DS_LAST_RESTORED_VOLUME/Library/Keychains/FileVaultMaster.cer" ]]; then
+				echo -e "\testoring Filevault keychains"
+				/usr/bin/tar -xf "$DS_REPOSITORY_BACKUPS/FilevaultKeys.tar" -C "$DS_LAST_RESTORED_VOLUME/" --strip-components=2
+			elif  [[ ! -e "$DS_REPOSITORY_BACKUPS/FilevaultKeys.tar" ]]; then
+				echo -e "\tno filevaut keychains backed up"
+			else
+				echo -e "\texisting Filevault keychains - restore skipped"
+			fi
 			# Attempting to write a firstboot script to restore filevault account
 			echo -e "\tfirst boot scripts installed to restore filevault accounts."
 			echo -e "\tafter directory services is set up, you need to restart again for the account to be created."
@@ -288,7 +288,7 @@ done
 # case $RESTORE_TOOL in
 # 	tar )
 		for i in "$DS_REPOSITORY_BACKUPS"/*HOME.tar; do
-			USERZ=`echo $(basename $i)|awk -F'.' '{print $1}'`
+			USERZ=`echo $(basename $i)|awk -F'_' '{print $1}'`
 			echo "Restoring $USERZ user directory with tar"
 			echo "Restore From: $i" "Restore To: $DS_LAST_RESTORED_VOLUME/Users/"
 			/usr/bin/tar -xf "$i" -C "$DS_LAST_RESTORED_VOLUME$DS_USER_PATH/" --strip-components=3
@@ -323,6 +323,11 @@ exit 0
 
 ## Changes
 #
+# Monday, March, 28, 2011 - v0.5
+# 	- Moved the restore of Keychain into filevault users restore. Probably don't need it otherwise.
+# 	- Better logging for skipping filevault keychain restores
+#	- Changed way to check for user accounts - allows for accounts with '.' in them
+# 
 # Monday, March, 28, 2011 - v0.4.7
 # 	- Moved dscl and internal directory variables outside and above for loop. 
 #	- Uncommented test variables. Easier to troubleshoot the script.

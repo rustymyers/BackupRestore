@@ -107,7 +107,7 @@ else
 fi
 }
 
-echo "educ_backup_data.sh - v0.4.7 beta ("`date`")"
+echo "educ_backup_data.sh - v0.5 beta ("`date`")"
 
 # Check that the backups folder is there
 if [[ ! -d "$DS_REPOSITORY_PATH/Backups" ]]; then
@@ -136,8 +136,7 @@ do
 		echo "Backing up $USERZ to $DS_REPOSITORY_BACKUPS"
 		# Backup user account to user folder
 		DS_BACKUP="$DS_INTERNAL_DRIVE$DS_USER_PATH/$USERZ"
-		DS_ARCHIVE="$DS_REPOSITORY_BACKUPS/$USERZ.HOME"
-		DS_BACKUP_PLIST="$DS_REPOSITORY_BACKUPS/$USERZ.BACKUP.plist"
+		DS_ARCHIVE="$DS_REPOSITORY_BACKUPS/$USERZ_HOME"
 		
 		case $BACKUP_TOOL in
 			tar )
@@ -180,7 +179,7 @@ do
 			# echo -e "The users primary group ID is: $UserzPrimaryGroupID"
 			# echo -e "If the ID is 20, we treat the user as a local user. Otherwise it's a network or mobile account"
 			# User data backup plist
-			DS_USER_BACKUP_PLIST="$DS_REPOSITORY_BACKUPS/$USERZ.USER.plist"
+			DS_USER_BACKUP_PLIST="$DS_REPOSITORY_BACKUPS/$USERZ_USER.plist"
 			# Test for existance of user
 			"$dscl" -plist -f "$INTERNAL_DN" localonly -read "/Local/Target/Users/$USERZ" 1>/dev/null || echo "ERROR: User record does not exist"
 			# Output all User Details to plist
@@ -198,9 +197,12 @@ do
 			else
 				/usr/libexec/PlistBuddy -c "add :isAdmin string yes" "$DS_USER_BACKUP_PLIST"
 			fi
+			if [[ `"$DS_INTERNAL_DRIVE/usr/libexec/PlistBuddy" -c "print :dsAttrTypeStandard\:HomeDirectory:0" "$DS_USER_BACKUP_PLIST"` ]]; then
+				
+			fi
 		else
 			# User data backup plist
-			DS_USER_BACKUP_PLIST="$DS_REPOSITORY_BACKUPS/$USERZ.NETUSER.plist"
+			DS_USER_BACKUP_PLIST="$DS_REPOSITORY_BACKUPS/$USERZ_NETUSER.plist"
 			# Next step, uncomment this to get the details for fielvault. Test for homedir on restore and use details when needed.
 			if [[ `"$dscl" -plist -f "$INTERNAL_DN" localonly -read "/Local/Target/Users/$USERZ" dsAttrTypeStandard:HomeDirectory|grep -E "home_dir"` ]]; then
 				"$dscl" -plist -f "$INTERNAL_DN" localonly -read "/Local/Target/Users/$USERZ" uid generateduid HomeDirectory NFSHomeDirectory AuthenticationAuthority > "$DS_USER_BACKUP_PLIST" 2>&1 && echo -e "\tminimum details for filevault backed up."
@@ -228,7 +230,6 @@ else
 	echo -e "No FileVault Master Keychains found"
 fi
 
-
 echo "educ_backup_data.sh - end"
 exit 0
 
@@ -251,9 +252,12 @@ exit 0
 
 ## Changes
 #
+# Monday, March, 28, 2011 - v0.5
+# 
 # Monday, March, 28, 2011 - v0.4.7
 # 	- Moved dscl and internal directory variables outside and above for loop. 
 #	- Uncommented test variables. Easier to troubleshoot the script.
+#	- Change way backup plist is written
 # 
 # Tuesday, March 22, 2011 - v0.4.6
 # 	- Filevault restores done with first boot scripts
