@@ -98,12 +98,12 @@ else
 fi
 }
 
-echo "educ_restore_data.sh - v0.5 beta ("`date`")"
+echo "educ_restore_data.sh - v0.6 beta ("`date`")"
 
 # Check if any backups exist for this computer.  If not, exit cleanly. - Contributed by Rhon Fitzwater
 if [ $DS_BACKUP_COUNT -lt 1 ] 
 then
-	echo -e "No backups for this computer exist";
+	echo -e "RuntimeAbortWorkflow: No backups for this computer exist";
 	echo "educ_restore_data.sh - end";
 	exit 0;
 fi
@@ -128,7 +128,6 @@ for i in "$DS_REPOSITORY_BACKUPS/"*USER.plist; do
 		if [[ `"$DS_INTERNAL_DRIVE/usr/libexec/PlistBuddy" -c "print :dsAttrTypeStandard\:HomeDirectory:0" "$DS_BACKUP_PLIST"` ]]; then
 		# if [[ $HomeDir ]]; then
 			echo -e "\tfilevault on"
-			echo -e "\tminimum account details restored"
 			# Check for filevault backup
 			if [[ -e "$DS_REPOSITORY_BACKUPS/FilevaultKeys.tar" && ! -e "$DS_LAST_RESTORED_VOLUME/Library/Keychains/FileVaultMaster.cer" ]]; then
 				echo -e "\testoring Filevault keychains"
@@ -322,6 +321,9 @@ exit 0
 
 
 ## Changes
+#
+# Saturday, April, 28, 2011 - v0.6
+# 	- Lots of little error fixes from midnight coding.
 #
 # Monday, March, 28, 2011 - v0.5
 # 	- Moved the restore of Keychain into filevault users restore. Probably don't need it otherwise.

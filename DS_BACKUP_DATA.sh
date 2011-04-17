@@ -107,7 +107,7 @@ else
 fi
 }
 
-echo "educ_backup_data.sh - v0.5 beta ("`date`")"
+echo "educ_backup_data.sh - v0.6 beta ("`date`")"
 
 # Check that the backups folder is there
 if [[ ! -d "$DS_REPOSITORY_PATH/Backups" ]]; then
@@ -123,6 +123,7 @@ echo "Scanning Users folder..."
 # List Users on the Mac
 for i in "$DS_INTERNAL_DRIVE""$DS_USER_PATH"/*/;
 do
+	echo -e ""
 	# set account name in lowercase
     USERZ=$(basename "$i"| tr '[:upper:]' '[:lower:]');
     # set keep variable
@@ -141,7 +142,7 @@ do
 		case $BACKUP_TOOL in
 			tar )
 			# Backup users with tar
-			/usr/bin/tar -czpf "$DS_ARCHIVE.tar" "$DS_BACKUP" && echo -e "Home successfully backed up using tar" 2>/dev/null || echo -e "Could not back up home"
+			/usr/bin/tar -czpf "$DS_ARCHIVE.tar" "$DS_BACKUP" && echo -e "\tSucess: Home successfully backed up using tar" 2>/dev/null || echo -e "\tError: could not back up home"
 			# Backup Output Errors:
 			# tar: Removing leading '/' from member names
 			# tar: getpwuid(<uid>) failed: No such file or directory
@@ -174,6 +175,7 @@ do
 		# if [[ `"$dscl" -f "$INTERNAL_DN" localonly -read "/Local/Target/Users/$USERZ" dsAttrTypeStandard:AuthenticationAuthority|grep -E "Shadow"` ]]; then #this is a local account
 		## Chack for PrimaryGroupID of 20. all local users should have the ID of 20, DS accounts sill be different. Probably not the best way to check.
 		if [[ `"$dscl" -f "$INTERNAL_DN" localonly -read "/Local/Target/Users/$USERZ" dsAttrTypeStandard:PrimaryGroupID|grep -E "20"` ]]; then #this is a local account
+			echo -e "\tSucess: $USERZ is a Local account"
 			# User PrimaryGroupID
 			# UserzPrimaryGroupID=`"$dscl" -f "$INTERNAL_DN" localonly -read "/Local/Target/Users/$USERZ" dsAttrTypeStandard:PrimaryGroupID|grep -E "20"`
 			# echo -e "The users primary group ID is: $UserzPrimaryGroupID"
@@ -181,44 +183,49 @@ do
 			# User data backup plist
 			DS_USER_BACKUP_PLIST="$DS_REPOSITORY_BACKUPS/$USERZ_USER.plist"
 			# Test for existance of user
-			"$dscl" -plist -f "$INTERNAL_DN" localonly -read "/Local/Target/Users/$USERZ" 1>/dev/null || echo "ERROR: User record does not exist"
+			"$dscl" -plist -f "$INTERNAL_DN" localonly -read "/Local/Target/Users/$USERZ" 1>/dev/null || echo "Error: User record does not exist"
 			# Output all User Details to plist
-			"$dscl" -plist -f "$INTERNAL_DN" localonly -read "/Local/Target/Users/$USERZ" gid home picture realname shell uid generateduid AuthenticationAuthority HomeDirectory > "$DS_USER_BACKUP_PLIST" 2>&1 && echo -e "\taccount backed up successfully"
+			"$dscl" -plist -f "$INTERNAL_DN" localonly -read "/Local/Target/Users/$USERZ" gid home picture realname shell uid generateduid AuthenticationAuthority HomeDirectory > "$DS_USER_BACKUP_PLIST" 2>&1 && echo -e "\tSucess: account backed up successfully"
 			# Backup password hash
 			GenUID=`/usr/libexec/PlistBuddy -c "print dsAttrTypeNative\:generateduid:0" "$DS_USER_BACKUP_PLIST"`
 			if [[ -e "$DS_INTERNAL_DRIVE/var/db/shadow/hash/$GenUID" ]]; then
-				/bin/cp "$DS_INTERNAL_DRIVE/var/db/shadow/hash/$GenUID" "$DS_REPOSITORY_BACKUPS/$USERZ.$GenUID"  && echo -e "\tpassword backed up successfully"
+				/bin/cp "$DS_INTERNAL_DRIVE/var/db/shadow/hash/$GenUID" "$DS_REPOSITORY_BACKUPS/$USERZ.$GenUID"  && echo -e "\tSucess: password backed up successfully"
 			else
-				echo "No password for $USERZ"
+				echo -e "\tError: no password for $USERZ"
 			fi
 			# Check if user is Admin
 			if [[ -z `"$dscl" -plist -f "$INTERNAL_DN" localonly -read "/Local/Target/Groups/admin" "GroupMembership"|grep -w "$USERZ"` ]]; then
 				/usr/libexec/PlistBuddy -c "add :isAdmin string no" "$DS_USER_BACKUP_PLIST"
 			else
 				/usr/libexec/PlistBuddy -c "add :isAdmin string yes" "$DS_USER_BACKUP_PLIST"
+				echo -e "\tSucess: $USERZ is an admin"
 			fi
+			# User has a Filevault Account, backup Filevault passwords
 			if [[ `"$DS_INTERNAL_DRIVE/usr/libexec/PlistBuddy" -c "print :dsAttrTypeStandard\:HomeDirectory:0" "$DS_USER_BACKUP_PLIST"` ]]; then
-				
+				echo -e "\tSucess: $USERZ has filevault turned on"
 			fi
 		else
+			echo -e "\tSucess: $USERZ is a Mobile account"
 			# User data backup plist
 			DS_USER_BACKUP_PLIST="$DS_REPOSITORY_BACKUPS/$USERZ_NETUSER.plist"
-			# Next step, uncomment this to get the details for fielvault. Test for homedir on restore and use details when needed.
+			# Get the details for fielvault. Test for homedir on restore and use details when needed.
 			if [[ `"$dscl" -plist -f "$INTERNAL_DN" localonly -read "/Local/Target/Users/$USERZ" dsAttrTypeStandard:HomeDirectory|grep -E "home_dir"` ]]; then
-				"$dscl" -plist -f "$INTERNAL_DN" localonly -read "/Local/Target/Users/$USERZ" uid generateduid HomeDirectory NFSHomeDirectory AuthenticationAuthority > "$DS_USER_BACKUP_PLIST" 2>&1 && echo -e "\tminimum details for filevault backed up."
+				"$dscl" -plist -f "$INTERNAL_DN" localonly -read "/Local/Target/Users/$USERZ" uid generateduid HomeDirectory NFSHomeDirectory AuthenticationAuthority > "$DS_USER_BACKUP_PLIST" 2>&1 && echo -e "\tSucess: minimum details for filevault backed up." || echo -e "\tError: filevault details can't be backed up."
 			else
-				echo -e "\taccount excluded: network account"
+				echo -e "\tSucess: account excluded for mobile account"
 			fi
-			echo -e "\tpassword excluded: network account"
+			echo -e "\tSucess: password excluded for mobile account"
 			# Check if user is Admin
 			if [[ -z `"$dscl" -plist -f "$INTERNAL_DN" localonly -read "/Local/Target/Groups/admin" "GroupMembership"|grep -w "$USERZ"` ]]; then
 				/usr/libexec/PlistBuddy -c "add :isAdmin string no" "$DS_USER_BACKUP_PLIST" 2>/dev/null
 			else
 				/usr/libexec/PlistBuddy -c "add :isAdmin string yes" "$DS_USER_BACKUP_PLIST" 2>/dev/null
+				echo -e "\tSucess: $USERZ is an admin"
 			fi
 		fi
 	else 
 		echo -e "Excluding $USERZ" 
+		echo -e ""
 	fi 
 done
 
@@ -236,28 +243,22 @@ exit 0
 #############################################################################################
 
 ## To Do
-# Backup Filevault homes
-# 	Filevault accounts have GeneratedUID
-# 	dscl . read /Users/file HomeDirectory | awk '{print $2}'
-# 	Backup sparseimage
-# 	/Users/file/file.sparsebundle
-# 	- Backup keychain master passwords and cert
-# 	- /Library/Keychain/FileVaultMaster.cer
-# 	- /Library/Keychain/FileVaultMaster.keychain
-# 	Recreate user - Wonder if its necessary to restore the accounts?
-# 	/System/Library/CoreServices/ManagedClient.app/Contents/Resources/createmobileaccount -n usershortname
-# 	Restore sparesimage
+#
 # Test USB Ethernet dongle for one machine
 # Plan for "Deleted Users" folder
 
 ## Changes
 #
-# Monday, March, 28, 2011 - v0.5
+# Saturday, April, 28, 2011 - v0.6
+# 	- Lots of little error fixes from midnight coding.
+# 	- Tried to unify script messages
+# 
+# Monday, April, 14, 2011 - v0.5
+#	- Change name of user plists and home backups to account for names with '.' in them.
 # 
 # Monday, March, 28, 2011 - v0.4.7
 # 	- Moved dscl and internal directory variables outside and above for loop. 
 #	- Uncommented test variables. Easier to troubleshoot the script.
-#	- Change way backup plist is written
 # 
 # Tuesday, March 22, 2011 - v0.4.6
 # 	- Filevault restores done with first boot scripts
@@ -292,6 +293,18 @@ exit 0
 # Monday December 20, 2010 
 # 	- Fixed issue with user account not showing in system preferences after restoring.
 # 	- Added support for restoring admin rights for network users
+
+# How to Backup Filevault homes
+# 	Filevault accounts have GeneratedUID
+# 	dscl . read /Users/file HomeDirectory | awk '{print $2}'
+# 	Backup sparseimage
+# 	/Users/file/file.sparsebundle
+# 	- Backup keychain master passwords and cert
+# 	- /Library/Keychain/FileVaultMaster.cer
+# 	- /Library/Keychain/FileVaultMaster.keychain
+# 	Recreate user - Wonder if its necessary to restore the accounts?
+# 	/System/Library/CoreServices/ManagedClient.app/Contents/Resources/createmobileaccount -n usershortname
+# 	Restore sparesimage
 
 # Written by Rusty Myers
 # 
