@@ -43,7 +43,7 @@ EOF
 #Variables:
 # Ignore these accounts or folders in /Users (use lowercase):
 # Shared folder is excluded using "shared"
-export EXCLUDE=( "shared" "guest" "etcadmin" "deleted users" )
+export EXCLUDE=( "shared" "guest" "deleted users" )
 # Unique ID for plist and common variable for scripts
 export UNIQUE_ID=`echo "$DS_PRIMARY_MAC_ADDRESS"|tr -d ':'` # Add Times? UNIQUE_ID=`date "+%Y%m%d%S"`
 # DS Script to backup user data with tar to Backups folder on repository.
@@ -107,7 +107,7 @@ else
 fi
 }
 
-echo "educ_backup_data.sh - v0.6 beta ("`date`")"
+echo "educ_backup_data.sh - v0.7 beta ("`date`")"
 
 # Check that the backups folder is there
 if [[ ! -d "$DS_REPOSITORY_PATH/Backups" ]]; then
@@ -137,7 +137,7 @@ do
 		echo "Backing up $USERZ to $DS_REPOSITORY_BACKUPS"
 		# Backup user account to user folder
 		DS_BACKUP="$DS_INTERNAL_DRIVE$DS_USER_PATH/$USERZ"
-		DS_ARCHIVE="$DS_REPOSITORY_BACKUPS/$USERZ_HOME"
+		DS_ARCHIVE="$DS_REPOSITORY_BACKUPS/$USERZ-HOME"
 		
 		case $BACKUP_TOOL in
 			tar )
@@ -181,7 +181,7 @@ do
 			# echo -e "The users primary group ID is: $UserzPrimaryGroupID"
 			# echo -e "If the ID is 20, we treat the user as a local user. Otherwise it's a network or mobile account"
 			# User data backup plist
-			DS_USER_BACKUP_PLIST="$DS_REPOSITORY_BACKUPS/$USERZ_USER.plist"
+			DS_USER_BACKUP_PLIST="$DS_REPOSITORY_BACKUPS/$USERZ-USER.plist"
 			# Test for existance of user
 			"$dscl" -plist -f "$INTERNAL_DN" localonly -read "/Local/Target/Users/$USERZ" 1>/dev/null || echo "Error: User record does not exist"
 			# Output all User Details to plist
@@ -207,7 +207,7 @@ do
 		else
 			echo -e "\tSucess: $USERZ is a Mobile account"
 			# User data backup plist
-			DS_USER_BACKUP_PLIST="$DS_REPOSITORY_BACKUPS/$USERZ_NETUSER.plist"
+			DS_USER_BACKUP_PLIST="$DS_REPOSITORY_BACKUPS/$USERZ-NETUSER.plist"
 			# Get the details for fielvault. Test for homedir on restore and use details when needed.
 			if [[ `"$dscl" -plist -f "$INTERNAL_DN" localonly -read "/Local/Target/Users/$USERZ" dsAttrTypeStandard:HomeDirectory|grep -E "home_dir"` ]]; then
 				"$dscl" -plist -f "$INTERNAL_DN" localonly -read "/Local/Target/Users/$USERZ" uid generateduid HomeDirectory NFSHomeDirectory AuthenticationAuthority > "$DS_USER_BACKUP_PLIST" 2>&1 && echo -e "\tSucess: minimum details for filevault backed up." || echo -e "\tError: filevault details can't be backed up."
@@ -249,6 +249,9 @@ exit 0
 
 ## Changes
 #
+# Tuesday, April, 19, 2011 - v0.7
+# 	- Updated code to use new user deliminator from '.' to '-'
+# 
 # Saturday, April, 28, 2011 - v0.6
 # 	- Lots of little error fixes from midnight coding.
 # 	- Tried to unify script messages

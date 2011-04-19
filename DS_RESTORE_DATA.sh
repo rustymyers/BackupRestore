@@ -98,7 +98,7 @@ else
 fi
 }
 
-echo "educ_restore_data.sh - v0.6 beta ("`date`")"
+echo "educ_restore_data.sh - v0.7 beta ("`date`")"
 
 # Check if any backups exist for this computer.  If not, exit cleanly. - Contributed by Rhon Fitzwater
 if [ $DS_BACKUP_COUNT -lt 1 ] 
@@ -112,13 +112,13 @@ fi
 # Scan user folder
 for i in "$DS_REPOSITORY_BACKUPS/"*USER.plist; do
 	# Restore User Account
-	USERZ=`echo $(basename $i)|awk -F'_' '{print $1}'`
+	USERZ=`echo $(basename $i)|awk -F'-' '{print $1}'`
 
 	echo -e "Restoring $USERZ"
 	
 	if [[ "$i" =~ "NETUSER" ]]; then
 		# Backup plist variable
-		DS_BACKUP_PLIST="$DS_REPOSITORY_BACKUPS/$USERZ.NETUSER.plist"
+		DS_BACKUP_PLIST="$DS_REPOSITORY_BACKUPS/$USERZ-NETUSER.plist"
 		## Add user to admin
 		# Check if user is Admin
 		echo -e "\tNetwork User:"
@@ -130,7 +130,7 @@ for i in "$DS_REPOSITORY_BACKUPS/"*USER.plist; do
 			echo -e "\tfilevault on"
 			# Check for filevault backup
 			if [[ -e "$DS_REPOSITORY_BACKUPS/FilevaultKeys.tar" && ! -e "$DS_LAST_RESTORED_VOLUME/Library/Keychains/FileVaultMaster.cer" ]]; then
-				echo -e "\testoring Filevault keychains"
+				echo -e "\trestoring Filevault keychains"
 				/usr/bin/tar -xf "$DS_REPOSITORY_BACKUPS/FilevaultKeys.tar" -C "$DS_LAST_RESTORED_VOLUME/" --strip-components=2
 			elif  [[ ! -e "$DS_REPOSITORY_BACKUPS/FilevaultKeys.tar" ]]; then
 				echo -e "\tno filevaut keychains backed up"
@@ -220,13 +220,13 @@ fi" > "$DS_INTERNAL_DRIVE/etc/restoremobilefilevault.$USERZ.sh"
 		fi
 		
 		# Restore admin rights
-		if [[ `"$DS_INTERNAL_DRIVE/usr/libexec/PlistBuddy" -c "print :isAdmin" "$DS_REPOSITORY_BACKUPS/$USERZ.NETUSER.plist"` = "yes" ]]; then
+		if [[ `"$DS_INTERNAL_DRIVE/usr/libexec/PlistBuddy" -c "print :isAdmin" "DS_BACKUP_PLIST"` = "yes" ]]; then
 			"$dscl" -f "$INTERNAL_DN" localonly -merge "/Local/Target/Groups/admin" "GroupMembership" "$USERZ"
 			echo -e "	admin rights restored"
 		fi	
 	else
 		echo -e "\tLocal User:"
-		DS_BACKUP_PLIST="$DS_REPOSITORY_BACKUPS/$USERZ.USER.plist"
+		DS_BACKUP_PLIST="$DS_REPOSITORY_BACKUPS/$USERZ-USER.plist"
 		# Get all the users info
 		GenUID=`"$DS_INTERNAL_DRIVE/usr/libexec/PlistBuddy" -c "print :dsAttrTypeNative\:generateduid:0" "$DS_BACKUP_PLIST"`
 		HomeDir=`"$DS_INTERNAL_DRIVE/usr/libexec/PlistBuddy" -c "print :dsAttrTypeStandard\:HomeDirectory:0" "$DS_BACKUP_PLIST"` &>/dev/null
@@ -321,6 +321,9 @@ exit 0
 
 
 ## Changes
+#
+# Tuesday, April, 19, 2011 - v0.7
+# 	- Updated code to use new user deliminator from '.' to '-'
 #
 # Saturday, April, 28, 2011 - v0.6
 # 	- Lots of little error fixes from midnight coding.
