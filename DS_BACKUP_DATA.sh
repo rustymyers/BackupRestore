@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# Beta version. Needs tested. Please report bugs.
+# Beta version. Needs testing. Please report bugs.
 # rustymyers@gmail.com
 
 # Script to backup home folders on volume before restoring disk image with DeployStudio
 # Uses the directories in the /Users folder of the target machine to back up data, user account details, and password.
-# Use accompanying ds_restore_data.sh to pur users and user folders back onto new image after restoring image.
+# Use accompanying ds_restore_data.sh to pur users and user folders back onto computer after re-imaging.
 
 function help {
     cat<<EOF
@@ -13,8 +13,16 @@ function help {
     Usage: `basename $0` [ -e "guest admin shared" ] [ -v "/Volumes/Macintosh HD" ] [ -u /Users ] [ -d "/Volumes/External Drive/" ] [ -t tar ]
     Variables can be set in DeployStudio variables window when running script.
     BackupRestore Variables:
-    -q Unique Identifier. Should be left empty.
-    -e Users to Skip - Doesn't Work.
+    -q Unique Identifier 
+			Enter the MAC address of the backup you want to restore.
+			For example, if you backup a computer and its MAC address
+			was: 000000000001. You can then specify that MAC as the
+			variable to restore to a different computer.
+		 	Read Me has more information on its use.
+	-c Remove User Cache
+			Will delete the Users /Library/Cache
+	 		folder before backing up the data.
+    -e Users to Skip
             Must use quotes for multiple users
             Default is "guest" and "shared"
                 You must specify "guest" and
@@ -35,6 +43,7 @@ function help {
             ditto and rsync NOT WORKING, yet!
             -removed- ditto = Use ditto with gzip to backup
             -removed- rsync = Use rsync to backup
+
     
 EOF
 
@@ -46,10 +55,14 @@ EOF
 export EXCLUDE=( "shared" "guest" "deleted users" )
 # Unique ID for plist and common variable for scripts
 export UNIQUE_ID=`echo "$DS_PRIMARY_MAC_ADDRESS"|tr -d ':'` # Add Times? UNIQUE_ID=`date "+%Y%m%d%S"`
+# Should we remove users cache folder? 1 = yes, 0 = no. Set to 0 by default.
+export RMCache="0"
 # DS Script to backup user data with tar to Backups folder on repository.
 export DS_REPOSITORY_BACKUPS="$DS_REPOSITORY_PATH/Backups/$UNIQUE_ID"
 # Set Path to internal drive
-export DS_INTERNAL_DRIVE=`system_profiler SPSerialATADataType | awk -F': ' '/Mount Point/ { print $2}'|head -n1`
+# export DS_INTERNAL_DRIVE=`system_profiler SPSerialATADataType|awk -F': ' '/Mount Point/ { print $2}'|head -n1`
+# Alternate metod to set DS_INTERNAL_DRIVE. May work better than system_profiler for drives not connected via SATA
+export DS_INTERNAL_DRIVE=`mount | grep disk0 | sed -e 's/^.* on //g' | sed -e 's/ (.*$//g'|head -n1`
 # Set Path to the folder with home folders
 export DS_USER_PATH="/Users"
 # Default backup tool
@@ -58,10 +71,11 @@ export BACKUP_TOOL="tar"
 export FilevaultKeys="FilevaultKeys"
 
 # Parse command line arguments
-while getopts :e:v:u:d:t:h opt; do
+while getopts :e:q:cv:u:d:t:h opt; do
 	case "$opt" in
-		# e) EXCLUDE="$OPTARG";;
+		e) EXCLUDE="$OPTARG";;
 		q) UNIQUE_ID="$OPTARG";;
+		c) RMCache="1"
 		v) DS_INTERNAL_DRIVE="$OPTARG";;
 		u) DS_USER_PATH="$OPTARG";;
 		d) DS_REPOSITORY_BACKUPS="$OPTARG/Backups/$UNIQUE_ID";;
@@ -77,16 +91,17 @@ while getopts :e:v:u:d:t:h opt; do
 done
 shift `expr $OPTIND - 1`
 
-# Set Variables that are dependent on getopts
+# Set variables that are dependent on getopts
 # Set path to dscl
 export dscl="$DS_INTERNAL_DRIVE/usr/bin/dscl"
-# Internal Drive directory node
+# Internal drive's directory node
 export INTERNAL_DN="$DS_INTERNAL_DRIVE/var/db/dslocal/nodes/Default"
 
 
-# Uncomment this section when you want to see the variables in the log. Great for troubleshooting. 		
+# Prints variables in the log. Great for troubleshooting. 		
 echo -e "Backup Arguments"
 echo -e "Unique ID:				$UNIQUE_ID"
+echo -e "Remove User Cache:			$RMCache"
 echo -e "Excluded users:		${EXCLUDE[@]}"
 echo -e "Target Volume:			$DS_INTERNAL_DRIVE"
 echo -e "User Path on target:	$DS_USER_PATH"
@@ -107,12 +122,15 @@ else
 fi
 }
 
-echo "educ_backup_data.sh - v0.7 beta ("`date`")"
+echo "educ_backup_data.sh - v0.7.1 beta ("`date`")"
 
-# Check that the backups folder is there
+# Check that the backups folder is there. 
+# If its missing, make it.
 if [[ ! -d "$DS_REPOSITORY_PATH/Backups" ]]; then
 	mkdir -p "$DS_REPOSITORY_PATH/Backups"
 fi
+# Check that the computer has a backup folder.
+# If its missing, make it.
 if [[ ! -d "$DS_REPOSITORY_PATH/Backups/$UNIQUE_ID" ]]; then
 	mkdir -p "$DS_REPOSITORY_PATH/Backups/$UNIQUE_ID"
 fi
@@ -120,13 +138,13 @@ fi
 # Start script...
 echo "Scanning Users folder..."
 
-# List Users on the Mac
+# List users on the computer
 for i in "$DS_INTERNAL_DRIVE""$DS_USER_PATH"/*/;
 do
 	echo -e ""
-	# set account name in lowercase
+	# Change the account name to lowercase
     USERZ=$(basename "$i"| tr '[:upper:]' '[:lower:]');
-    # set keep variable
+    # Set keep variable
 	keep=1;
     for x in "${EXCLUDE[@]}";
     do
@@ -135,14 +153,20 @@ do
     done;
     if (( $keep )); then
 		echo "Backing up $USERZ to $DS_REPOSITORY_BACKUPS"
-		# Backup user account to user folder
+		# Backup user account to computer's folder
 		DS_BACKUP="$DS_INTERNAL_DRIVE$DS_USER_PATH/$USERZ"
 		DS_ARCHIVE="$DS_REPOSITORY_BACKUPS/$USERZ-HOME"
 		
 		case $BACKUP_TOOL in
 			tar )
+			# Remove users cache? If set to 1, then yes.
+			if [[ $RMCache = 1 ]]; then
+				# Remove users home folder cache
+				rm -Rf "$DS_BACKUP/Library/Cache/"
+			fi
 			# Backup users with tar
-			/usr/bin/tar -czpf "$DS_ARCHIVE.tar" "$DS_BACKUP" && echo -e "\tSucess: Home successfully backed up using tar" 2>/dev/null || echo -e "\tError: could not back up home"
+			/usr/bin/tar -czpf "$DS_ARCHIVE.tar" "$DS_BACKUP" && echo -e "\tSucess: Home successfully backed up using tar" 2>/dev/null || echo -e "RuntimeAbortWorkflow: \tError: could not back up home"
+			RUNTIME_ABORT "RuntimeAbortWorkflow: \tError: could not back up home" "\tSucess: Home successfully backed up using tar"
 			# Backup Output Errors:
 			# tar: Removing leading '/' from member names
 			# tar: getpwuid(<uid>) failed: No such file or directory
@@ -166,17 +190,17 @@ do
 				;;
 		esac
 		# Backup User Account
-		UserID=`"$dscl" -f "$INTERNAL_DN" localonly -read "/Local/Target/Users/$USERZ" uid|awk '{print $2}'`
-		## Old way to check for network and mobile accounts. The idea is that local accounts are less than 1000 and network accounts are greater than 1000. May no hold true universally.
+		## Old way to check for network and mobile accounts. The idea is that local accounts have a UID < 1000 and network accounts are greater than 1000. May not hold true universally.
+		# UserID=`"$dscl" -f "$INTERNAL_DN" localonly -read "/Local/Target/Users/$USERZ" uid|awk '{print $2}'`
 		# if [[ "$UserID" -gt "1000" ]]; then #this is a mobile account
-		## Check dscl for "OriginalNodeName" if its a mobile account. if the account doesn't exist, its a network account. 
+		## Check dscl for "OriginalNodeName" if its a mobile account. If the account doesn't exist, its a network account. 
 		# if [[ `"$dscl" -f "$INTERNAL_DN" localonly -read "/Local/Target/Users/$USERZ" dsAttrTypeStandard:OriginalNodeName|grep -E "^OriginalNodeName:"` ]]; then #this is a mobile account
 		## Another Method that should work: check the Authentication Authority for ShadowHash. Only local accounts have it.
 		# if [[ `"$dscl" -f "$INTERNAL_DN" localonly -read "/Local/Target/Users/$USERZ" dsAttrTypeStandard:AuthenticationAuthority|grep -E "Shadow"` ]]; then #this is a local account
-		## Chack for PrimaryGroupID of 20. all local users should have the ID of 20, DS accounts sill be different. Probably not the best way to check.
+		## Check for PrimaryGroupID of 20. All local users should have the ID of 20, DS accounts will be different. Probably not the best way to check.
 		if [[ `"$dscl" -f "$INTERNAL_DN" localonly -read "/Local/Target/Users/$USERZ" dsAttrTypeStandard:PrimaryGroupID|grep -E "20"` ]]; then #this is a local account
 			echo -e "\tSucess: $USERZ is a Local account"
-			# User PrimaryGroupID
+			# User PrimaryGroupID echo. Turned off because it was just extra logging.
 			# UserzPrimaryGroupID=`"$dscl" -f "$INTERNAL_DN" localonly -read "/Local/Target/Users/$USERZ" dsAttrTypeStandard:PrimaryGroupID|grep -E "20"`
 			# echo -e "The users primary group ID is: $UserzPrimaryGroupID"
 			# echo -e "If the ID is 20, we treat the user as a local user. Otherwise it's a network or mobile account"
@@ -193,29 +217,31 @@ do
 			else
 				echo -e "\tError: no password for $USERZ"
 			fi
-			# Check if user is Admin
+			# Check if user is an admin
 			if [[ -z `"$dscl" -plist -f "$INTERNAL_DN" localonly -read "/Local/Target/Groups/admin" "GroupMembership"|grep -w "$USERZ"` ]]; then
 				/usr/libexec/PlistBuddy -c "add :isAdmin string no" "$DS_USER_BACKUP_PLIST"
 			else
 				/usr/libexec/PlistBuddy -c "add :isAdmin string yes" "$DS_USER_BACKUP_PLIST"
 				echo -e "\tSucess: $USERZ is an admin"
 			fi
-			# User has a Filevault Account, backup Filevault passwords
+			# User has a Filevault account, backup Filevault passwords
 			if [[ `"$DS_INTERNAL_DRIVE/usr/libexec/PlistBuddy" -c "print :dsAttrTypeStandard\:HomeDirectory:0" "$DS_USER_BACKUP_PLIST"` ]]; then
-				echo -e "\tSucess: $USERZ has filevault turned on"
+				echo -e "\tSucess: $USERZ has Filevault turned on"
+			else
+				echo -e "\tSucess: $USERZ does not have Filevault turned on"
 			fi
 		else
 			echo -e "\tSucess: $USERZ is a Mobile account"
 			# User data backup plist
 			DS_USER_BACKUP_PLIST="$DS_REPOSITORY_BACKUPS/$USERZ-NETUSER.plist"
-			# Get the details for fielvault. Test for homedir on restore and use details when needed.
+			# Get the details for Filevault. Test for homedir on restore and use details when needed.
 			if [[ `"$dscl" -plist -f "$INTERNAL_DN" localonly -read "/Local/Target/Users/$USERZ" dsAttrTypeStandard:HomeDirectory|grep -E "home_dir"` ]]; then
 				"$dscl" -plist -f "$INTERNAL_DN" localonly -read "/Local/Target/Users/$USERZ" uid generateduid HomeDirectory NFSHomeDirectory AuthenticationAuthority > "$DS_USER_BACKUP_PLIST" 2>&1 && echo -e "\tSucess: minimum details for filevault backed up." || echo -e "\tError: filevault details can't be backed up."
 			else
 				echo -e "\tSucess: account excluded for mobile account"
 			fi
 			echo -e "\tSucess: password excluded for mobile account"
-			# Check if user is Admin
+			# Check if user is an admin
 			if [[ -z `"$dscl" -plist -f "$INTERNAL_DN" localonly -read "/Local/Target/Groups/admin" "GroupMembership"|grep -w "$USERZ"` ]]; then
 				/usr/libexec/PlistBuddy -c "add :isAdmin string no" "$DS_USER_BACKUP_PLIST" 2>/dev/null
 			else
@@ -248,11 +274,15 @@ exit 0
 # Plan for "Deleted Users" folder
 
 ## Changes
-#
+# 
+# Wednesday, June, 22, 2011 - v0.7.1
+#	- Added flag to remove user cache folder before backing up home.
+# 	- Testing new DS_INTERNAL_DRIVE variable command.
+# 
 # Tuesday, April, 19, 2011 - v0.7
 # 	- Updated code to use new user deliminator from '.' to '-'
 # 
-# Saturday, April, 28, 2011 - v0.6
+# Saturday, April, 16, 2011 - v0.6
 # 	- Lots of little error fixes from midnight coding.
 # 	- Tried to unify script messages
 # 

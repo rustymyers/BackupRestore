@@ -36,8 +36,11 @@ EOF
 }
 
 # Set Path to internal drive
-export DS_INTERNAL_DRIVE=`system_profiler SPSerialATADataType | awk -F': ' '/Mount Point/ { print $2}'|head -n1`
-## Non-Reimage variable. If you want to restore the user without restoring an image,
+# Old method using system_profiler. Sometimes a bit slow.
+# export DS_INTERNAL_DRIVE=`system_profiler SPSerialATADataType | awk -F': ' '/Mount Point/ { print $2}'|head -n1`
+# New method using mount. Needs testing.
+export DS_INTERNAL_DRIVE=`mount | grep disk0 | sed -e 's/^.* on //g' | sed -e 's/ (.*$//g'|head -n1`
+# Non-Reimage variable. If you want to restore the user without restoring an image,
 # set the destination to the volume you wish to target
 # Default is set to the Last Restored Volume variable from DS
 # You will need to set the target volume if your not restoring an image.
@@ -98,7 +101,7 @@ else
 fi
 }
 
-echo "educ_restore_data.sh - v0.7 beta ("`date`")"
+echo "educ_restore_data.sh - v0.7.1 beta ("`date`")"
 
 # Check if any backups exist for this computer.  If not, exit cleanly. - Contributed by Rhon Fitzwater
 if [ $DS_BACKUP_COUNT -lt 1 ] 
@@ -109,7 +112,7 @@ then
 fi
 
 
-# Scan user folder
+# Scan computer's folder for users to restore
 for i in "$DS_REPOSITORY_BACKUPS/"*USER.plist; do
 	# Restore User Account
 	USERZ=`echo $(basename $i)|awk -F'-' '{print $1}'`
@@ -119,9 +122,8 @@ for i in "$DS_REPOSITORY_BACKUPS/"*USER.plist; do
 	if [[ "$i" =~ "NETUSER" ]]; then
 		# Backup plist variable
 		DS_BACKUP_PLIST="$DS_REPOSITORY_BACKUPS/$USERZ-NETUSER.plist"
-		## Add user to admin
-		# Check if user is Admin
 		echo -e "\tNetwork User:"
+		# Network accounts don't have their passwords backed up, skipping.
 		echo -e "\tpassword skipped"
 		# Create basics for fielvault....might not have to, but we will try.
 		# uid generateduid shortname
@@ -219,7 +221,7 @@ fi" > "$DS_INTERNAL_DRIVE/etc/restoremobilefilevault.$USERZ.sh"
 			echo -e "\tfilevault off"
 		fi
 		
-		# Restore admin rights
+		# Check if user is Admin, Restore admin rights
 		if [[ `"$DS_INTERNAL_DRIVE/usr/libexec/PlistBuddy" -c "print :isAdmin" "DS_BACKUP_PLIST"` = "yes" ]]; then
 			"$dscl" -f "$INTERNAL_DN" localonly -merge "/Local/Target/Groups/admin" "GroupMembership" "$USERZ"
 			echo -e "	admin rights restored"
@@ -237,7 +239,7 @@ fi" > "$DS_INTERNAL_DRIVE/etc/restoremobilefilevault.$USERZ.sh"
 		RName=`"$DS_INTERNAL_DRIVE/usr/libexec/PlistBuddy" -c "print :dsAttrTypeNative\:realname:0" "$DS_BACKUP_PLIST"`
 		GroupID=`"$DS_INTERNAL_DRIVE/usr/libexec/PlistBuddy" -c "print :dsAttrTypeNative\:gid:0" "$DS_BACKUP_PLIST"`
 	
-		# Write User Details to imaged computer
+		# Write user's details to imaged computer
 		"$dscl" -f "$INTERNAL_DN" localonly -create "/Local/Target/Users/$USERZ"
 		if [ "${?}" -ne 0 ]; then
 			echo "RuntimeAbortWorkflow: Could not create $USERZ...exiting."
@@ -321,7 +323,10 @@ exit 0
 
 
 ## Changes
-#
+# 
+# Wednesday, June, 22, 2011 - v0.7.1
+# 	- Testing new DS_INTERNAL_DRIVE variable command
+# 
 # Tuesday, April, 19, 2011 - v0.7
 # 	- Updated code to use new user deliminator from '.' to '-'
 #
@@ -384,4 +389,6 @@ exit 0
 # Credit to Rhon Fitzwater for his code that skips the restoration process if 
 # there is no backups to restore. Email: rfitzwater@rider.edu
 #
-# Thanks to bpenglase for tar command flags
+# Thanks to bpenglase for tar command flags.
+#
+# Thanks to Data Scavanger for the mount command to determine internal drive.
