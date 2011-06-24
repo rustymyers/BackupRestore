@@ -75,7 +75,7 @@ while getopts :e:q:cv:u:d:t:h opt; do
 	case "$opt" in
 		e) EXCLUDE="$OPTARG";;
 		q) UNIQUE_ID="$OPTARG";;
-		c) RMCache="1"
+		c) RMCache="1";;
 		v) DS_INTERNAL_DRIVE="$OPTARG";;
 		u) DS_USER_PATH="$OPTARG";;
 		d) DS_REPOSITORY_BACKUPS="$OPTARG/Backups/$UNIQUE_ID";;
