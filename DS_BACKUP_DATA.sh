@@ -60,9 +60,10 @@ export RMCache="0"
 # DS Script to backup user data with tar to Backups folder on repository.
 export DS_REPOSITORY_BACKUPS="$DS_REPOSITORY_PATH/Backups/$UNIQUE_ID"
 # Set Path to internal drive
-# export DS_INTERNAL_DRIVE=`system_profiler SPSerialATADataType|awk -F': ' '/Mount Point/ { print $2}'|head -n1`
+export DS_INTERNAL_DRIVE=`system_profiler SPSerialATADataType|awk -F': ' '/Mount Point/ { print $2}'|head -n1`
 # Alternate metod to set DS_INTERNAL_DRIVE. May work better than system_profiler for drives not connected via SATA
-export DS_INTERNAL_DRIVE=`mount | grep disk0 | sed -e 's/^.* on //g' | sed -e 's/ (.*$//g'|head -n1`
+# This method failed when a Time Machine volume was disk0, the above command worked.
+# export DS_INTERNAL_DRIVE=`mount | grep disk0 | sed -e 's/^.* on //g' | sed -e 's/ (.*$//g'|head -n1`
 # Set Path to the folder with home folders
 export DS_USER_PATH="/Users"
 # Default backup tool
