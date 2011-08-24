@@ -52,7 +52,7 @@ EOF
 #Variables:
 # Ignore these accounts or folders in /Users (use lowercase):
 # Shared folder is excluded using "shared"
-export EXCLUDE=( "shared" "guest" "deleted users" )
+export EXCLUDE=( "shared" "guest" "deleted users" "rusty" "bree" )
 # Unique ID for plist and common variable for scripts
 export UNIQUE_ID=`echo "$DS_PRIMARY_MAC_ADDRESS"|tr -d ':'` # Add Times? UNIQUE_ID=`date "+%Y%m%d%S"`
 # Should we remove users cache folder? 1 = yes, 0 = no. Set to 0 by default.
@@ -68,7 +68,7 @@ export DS_INTERNAL_DRIVE=`system_profiler SPSerialATADataType|awk -F': ' '/Mount
 export DS_USER_PATH="/Users"
 # Default backup tool
 export BACKUP_TOOL="tar"
-# Filevault backup
+# Filevault backup ## What the fuck is this for?
 export FilevaultKeys="FilevaultKeys"
 
 # Parse command line arguments
@@ -198,8 +198,10 @@ do
 		# if [[ `"$dscl" -f "$INTERNAL_DN" localonly -read "/Local/Target/Users/$USERZ" dsAttrTypeStandard:OriginalNodeName|grep -E "^OriginalNodeName:"` ]]; then #this is a mobile account
 		## Another Method that should work: check the Authentication Authority for ShadowHash. Only local accounts have it.
 		# if [[ `"$dscl" -f "$INTERNAL_DN" localonly -read "/Local/Target/Users/$USERZ" dsAttrTypeStandard:AuthenticationAuthority|grep -E "Shadow"` ]]; then #this is a local account
-		## Check for PrimaryGroupID of 20. All local users should have the ID of 20, DS accounts will be different. Probably not the best way to check.
-		if [[ `"$dscl" -f "$INTERNAL_DN" localonly -read "/Local/Target/Users/$USERZ" dsAttrTypeStandard:PrimaryGroupID|grep -E "20"` ]]; then #this is a local account
+		## Check for PrimaryGroupID of 20. All local users should have the ID of 20, DS accounts will be different. Probably not the best way to check. Broken in 10.7
+		# if [[ `"$dscl" -f "$INTERNAL_DN" localonly -read "/Local/Target/Users/$USERZ" dsAttrTypeStandard:PrimaryGroupID|grep -E "20"` ]]; then #this is a local account
+		## Another Method that should work: check for OriginalAuthenticationAuthority. Only directory accounts have it.
+		if [[ ! `"$dscl" -f "$INTERNAL_DN" localonly -read "/Local/Target/Users/$USERZ" |grep -E "OriginalAuthenticationAuthority"` ]]; then #this is a local account
 			echo -e "\tSucess: $USERZ is a Local account"
 			# User PrimaryGroupID echo. Turned off because it was just extra logging.
 			# UserzPrimaryGroupID=`"$dscl" -f "$INTERNAL_DN" localonly -read "/Local/Target/Users/$USERZ" dsAttrTypeStandard:PrimaryGroupID|grep -E "20"`
