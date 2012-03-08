@@ -292,7 +292,7 @@ done
 			USERZ=`echo $(basename $i)|awk -F'_' '{print $1}'`
 			echo "Restoring $USERZ user directory with tar"
 			echo "Restore From: $i" "Restore To: $DS_LAST_RESTORED_VOLUME/Users/"
-			/usr/bin/tar -xf "$i" -C "$DS_LAST_RESTORED_VOLUME$DS_USER_PATH/" --strip-components=3
+			/usr/bin/tar -xpf "$i" -C "$DS_LAST_RESTORED_VOLUME$DS_USER_PATH/" --strip-components=3
 			RUNTIME_ABORT "RuntimeAbortWorkflow: Could not restore home folder for $USERZ using tar...exiting." "\thome restored successfully"
 		done
 # 		;;

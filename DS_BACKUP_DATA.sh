@@ -166,7 +166,7 @@ do
 				rm -Rf "$DS_BACKUP/Library/Cache/"
 			fi
 			# Backup users with tar
-			/usr/bin/tar -czpf "$DS_ARCHIVE.tar" "$DS_BACKUP" && echo -e "\tSucess: Home successfully backed up using tar" 2>/dev/null || echo -e "RuntimeAbortWorkflow: \tError: could not back up home"
+			/usr/bin/tar -czf "$DS_ARCHIVE.tar" "$DS_BACKUP" && echo -e "\tSucess: Home successfully backed up using tar" 2>/dev/null || echo -e "RuntimeAbortWorkflow: \tError: could not back up home"
 			RUNTIME_ABORT "RuntimeAbortWorkflow: \tError: could not back up home" "\tSucess: Home successfully backed up using tar"
 			# Backup Output Errors:
 			# tar: Removing leading '/' from member names
