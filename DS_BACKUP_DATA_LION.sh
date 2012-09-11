@@ -234,7 +234,9 @@ exit 0
 
 ## To Do
 #
+# Switch to Serial Number?
 # Plan for "Deleted Users" folder
+# Log paths to backup folders
 # Backup More User Records?? 
 # 	/var/db/dslocal/nodes/Default/sharepoints/User Public Folder.plist
 # 	groups/com.applesharepoint.group.[12].plist

@@ -192,7 +192,9 @@ exit 0
 ## ToDo
 # 
 # Add Follow Symbolic Links to Tar? -L
-# 
+# Check for UID's when restoring? 
+#	"$DS_LAST_RESTORED_VOLUME/usr/bin/dscl" -f "$DS_LAST_RESTORED_VOLUME/var/db/dslocal/nodes/Default" localonly -change "/Local/Target/Users/student" "UniqueID" "502" "505"
+
 
 ## Changes
 # 
