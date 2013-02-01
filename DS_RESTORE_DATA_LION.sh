@@ -56,7 +56,9 @@ export UNIQUE_ID=`echo "$DS_PRIMARY_MAC_ADDRESS"|tr -d ':'` # Add Times? UNIQUE_
 export DS_REPOSITORY_BACKUPS="$DS_REPOSITORY_PATH/Backups/$UNIQUE_ID"
 
 # Set backup count to number of tar files in backup repository - Contributed by Rhon Fitzwater
-export DS_BACKUP_COUNT=`/bin/ls -l "$DS_REPOSITORY_BACKUPS" | grep -E '*.tar|*.zip' | wc -l`
+# Updated grep contributed by Alan McSeveney <alan@themill.com>
+# export DS_BACKUP_COUNT=`/bin/ls -l "$DS_REPOSITORY_BACKUPS" | grep -E '\.(tar|zip)$' | wc -l`
+export DS_BACKUP_COUNT=`/bin/ls -l "$DS_REPOSITORY_BACKUPS" | grep -E '.*\.tar|.*\.zip' | wc -l`
 
 # Set Path to the folder with home folders
 export DS_USER_PATH="/Users"
@@ -198,6 +200,9 @@ exit 0
 
 ## Changes
 # 
+# Tuesday, September, 11, 2012 - v0.7.3
+# 	- Updating Grep for DS_BACKUP_COUNT to support 10.8
+#
 # Thursday, December, 1, 2011 - v0.7.2
 # 	- Adding ditto as a restore tool thanks to Miles Muri!
 # 	- Modified DS_BACKUP_COUNT for ditto backups that create .zip files - by Miles Muri
