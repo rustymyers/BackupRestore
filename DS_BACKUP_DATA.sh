@@ -44,8 +44,27 @@ function help {
             ditto = Use ditto with gzip to backup
             rsync NOT WORKING, yet!
             -removed- rsync = Use rsync to backup
+	-s Select files - New Feature (11/2013)
+			This option allows you to backup only 
+			select files. Pass the files as an
+			argument or specify them in the script.
+			This option uses an uncompressed tar.
+			I have not test this at all.
 EOF
 
+}
+
+function addFile {
+	# Pass file argument and add it to a TAR named $DS_ARCHIVE
+	newFile="$1"
+	# Check for existing TAR
+	if [[ -e "$2" ]]; then
+		# Append file to TAR
+		/usr/bin/tar -rpf "$2" "$1" &> /dev/null
+	else
+		# No TAR, create one first
+		/usr/bin/tar -cpf "$2" "$1" &> /dev/null
+	fi
 }
 
 #Variables:
@@ -66,9 +85,14 @@ export DS_USER_PATH="/Users"
 export BACKUP_TOOL="tar"
 # Filevault backup ## What the fuck is this for? ## It's the filename of the backup of the Filevault keys (FilevaultKeys.tar). Not currently implemented
 export FilevaultKeys="FilevaultKeys"
+# Turn on select backup of files. 1 turns it on, 0 turns it off. Only back up from the BACKUP_LIST below...
+BACKUP_SELECTED="0"
+# List of files to backup when backing up only select files, from the context of the Users home folder ~/.
+export BACKUP_LIST="Library/Preferences/applet.plist
+Library/Preferences/com.apple.Desktop.plist"
 
 # Parse command line arguments
-while getopts :e:q:cv:u:d:t:h opt; do
+while getopts :e:q:cv:u:d:t:s:h opt; do
 	case "$opt" in
 		e) EXCLUDE="$OPTARG";;
 		q) UNIQUE_ID="$OPTARG";;
@@ -77,6 +101,8 @@ while getopts :e:q:cv:u:d:t:h opt; do
 		u) DS_USER_PATH="$OPTARG";;
 		d) DS_REPOSITORY_BACKUPS="$OPTARG/Backups/$UNIQUE_ID";;
 		t) BACKUP_TOOL="$OPTARG";;
+		s) BACKUP_SELECTED="1"
+			BACKUP_LIST="$OPTARG";;
 		h) 
 			help
 			exit 0;;
@@ -106,6 +132,8 @@ echo -e "# Backup Path:					$DS_REPOSITORY_BACKUPS"
 echo -e "# Backup tool:				$BACKUP_TOOL"
 echo -e "# dscl path:					$dscl"
 echo -e "# Internal Directory:			$INTERNAL_DN"
+echo -e "# Backup select files:			$BACKUP_SELECTED"
+echo -e "# Backup file list:			$BACKUP_LIST"
 
 function RUNTIME_ABORT {
 # Usage:
@@ -164,12 +192,31 @@ do
 			echo -e "\t-Emptying user Trash..."
 			rm -rfd "$DS_BACKUP/.Trash/*"
 		fi
-
+		
+		# Check backup tool and backup selected option. Must use tar for backing up select files.
+		if [[ $BACKUP_SELECTED = 1 && $BACKUP_TOOL != "tar" ]]; then
+			echo "RuntimeAbortWorkflow: Error: Backing up selected files is only supported with the tar backup_tool"
+			exit 32
+		fi
+		
 		case $BACKUP_TOOL in
 			tar )
-			# Backup users with tar
-			/usr/bin/tar -czpf "$DS_ARCHIVE.tar" "$DS_BACKUP" &> /dev/null
-			RUNTIME_ABORT "RuntimeAbortWorkflow: Error: could not back up home" "\t+Sucess: Home successfully backed up using tar"
+				if [[ $BACKUP_SELECTED = 1 ]]; then
+					# Backup select files
+					SAVEIFS=$IFS
+					IFS=$(echo -en "\n\b")
+					for FilePath in $BACKUP_LIST; do
+						# Backup users with uncompressed tar
+						addFile "$FilePath" "$DS_ARCHIVE.tar"
+						RUNTIME_ABORT "RuntimeAbortWorkflow: Error: could not back up home" "\t+Sucess: Home successfully backed up using tar"
+					done
+					IFS=$SAVEIFS
+				else
+					# Backup whole home folder
+					# Backup users with compressed tar
+					/usr/bin/tar -czpf "$DS_ARCHIVE.tar" "$DS_BACKUP" &> /dev/null
+					RUNTIME_ABORT "RuntimeAbortWorkflow: Error: could not back up home" "\t+Sucess: Home successfully backed up using tar"
+				fi
 				;;
 			ditto ) ## Contributed by Miles Muri, Merci!
 			echo -e "Backing up user home directory to $DS_ARCHIVE.zip"
@@ -186,6 +233,9 @@ do
 			exit 1
 				;;
 		esac
+
+		# Done backing up files...
+		
 		# Log which tool was used to backup user
 		/usr/libexec/PlistBuddy -c "add :backuptool string $BACKUP_TOOL" "$DS_REPOSITORY_BACKUPS/$USERZ.BACKUP.plist" &>/dev/null
 		
