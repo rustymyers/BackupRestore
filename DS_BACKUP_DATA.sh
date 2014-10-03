@@ -71,7 +71,9 @@ export FilevaultKeys="FilevaultKeys"
 while getopts :e:q:cv:u:d:t:h opt; do
 	case "$opt" in
 		e) EXCLUDE="$OPTARG";;
-		q) UNIQUE_ID="$OPTARG";;
+		q) 
+			UNIQUE_ID="$OPTARG"
+			DS_REPOSITORY_BACKUPS="$DS_REPOSITORY_PATH/Backups/$UNIQUE_ID";;
 		c) RMCache="1";;
 		v) DS_INTERNAL_DRIVE="$OPTARG";;
 		u) DS_USER_PATH="$OPTARG";;
@@ -245,6 +247,9 @@ exit 0
 
 ## Changes
 # 
+# Thursday, October, 3, 2014 - v0.7.3
+#   - Fixed a bug that didn't allow -q to be used without -d. Now when specifying a unique ID -d is not required. 
+#
 # Thursday, December, 1, 2011 - v0.7.2
 # 	- Removing code for Lion testing
 # 	- Backing up dslocal user.plist instead of all the records individually.
