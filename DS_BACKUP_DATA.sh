@@ -64,7 +64,7 @@ export DS_INTERNAL_DRIVE=`system_profiler SPSerialATADataType|awk -F': ' '/Mount
 export DS_USER_PATH="/Users"
 # Default backup tool
 export BACKUP_TOOL="tar"
-# Filevault backup ## What the fuck is this for? ## It's the filename of the backup of the Filevault keys (FilevaultKeys.tar). Not currently implemented
+# Filename of the backup of the Filevault keys (FilevaultKeys.tar). Not currently implemented
 export FilevaultKeys="FilevaultKeys"
 
 # Parse command line arguments
