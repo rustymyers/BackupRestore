@@ -55,11 +55,6 @@ export UNIQUE_ID=`echo "$DS_PRIMARY_MAC_ADDRESS"|tr -d ':'` # Add Times? UNIQUE_
 # DS Script to backup user data with tar to Backups folder on repository.
 export DS_REPOSITORY_BACKUPS="$DS_REPOSITORY_PATH/Backups/$UNIQUE_ID"
 
-# Set backup count to number of tar files in backup repository - Contributed by Rhon Fitzwater
-# Updated grep contributed by Alan McSeveney <alan@themill.com>
-# export DS_BACKUP_COUNT=`/bin/ls -l "$DS_REPOSITORY_BACKUPS" | grep -E '\.(tar|zip)$' | wc -l`
-export DS_BACKUP_COUNT=`/bin/ls -l "$DS_REPOSITORY_BACKUPS" | grep -E '.*\.tar|.*\.zip' | wc -l`
-
 # Set Path to the folder with home folders
 export DS_USER_PATH="/Users"
 
@@ -80,6 +75,11 @@ while getopts :v:q:r:u:h opt; do
 	esac
 done
 shift `expr $OPTIND - 1`
+
+# Set backup count to number of tar files in backup repository - Contributed by Rhon Fitzwater
+# Updated grep contributed by Alan McSeveney <alan@themill.com>
+# export DS_BACKUP_COUNT=`/bin/ls -l "$DS_REPOSITORY_BACKUPS" | grep -E '\.(tar|zip)$' | wc -l`
+export DS_BACKUP_COUNT=`/bin/ls -l "$DS_REPOSITORY_BACKUPS" | grep -E '.*\.tar|.*\.zip' | wc -l`
 
 # Set Variables that are dependent on getopts
 # Set path to dscl
