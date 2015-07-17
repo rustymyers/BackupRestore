@@ -123,15 +123,10 @@ fi
 
 echo "educ_backup_data.sh - v0.7.2 (Lion) beta ("`date`")"
 
-# Check that the backups folder is there. 
-# If its missing, make it.
-if [[ ! -d "$DS_REPOSITORY_PATH/Backups" ]]; then
-	mkdir -p "$DS_REPOSITORY_PATH/Backups"
-fi
-# Check that the computer has a backup folder.
-# If its missing, make it.
-if [[ ! -d "$DS_REPOSITORY_PATH/Backups/$UNIQUE_ID" ]]; then
-	mkdir -p "$DS_REPOSITORY_PATH/Backups/$UNIQUE_ID"
+# Check that the backups folder exists on repo and contains backup folder for this computer.
+# If either are missing, make them.
+if [[ ! -d "DS_REPOSITORY_BACKUPS" ]]; then
+	mkdir -p "DS_REPOSITORY_BACKUPS"
 fi
 
 # Start script...
