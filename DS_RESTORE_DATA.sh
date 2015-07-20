@@ -63,7 +63,7 @@ while getopts :v:q:r:u:h opt; do
 		# e) EXCLUDE="$OPTARG";;
 		v) DS_LAST_RESTORED_VOLUME="$OPTARG";;
 		q) UNIQUE_ID="$OPTARG";;
-		r) DS_REPOSITORY_PATH="$OPTARG/Backups/$UNIQUE_ID";;
+		r) DS_REPOSITORY_PATH="$OPTARG";;
 		u) DS_USER_PATH="$OPTARG";;
 		h) 
 			help
@@ -75,6 +75,9 @@ while getopts :v:q:r:u:h opt; do
 	esac
 done
 shift `expr $OPTIND - 1`
+
+# DS Script to backup user data with tar to Backups folder on repository.
+export DS_REPOSITORY_BACKUPS="$DS_REPOSITORY_PATH/Backups/$UNIQUE_ID"
 
 # Set backup count to number of tar files in backup repository - Contributed by Rhon Fitzwater
 # Updated grep contributed by Alan McSeveney <alan@themill.com>
@@ -93,6 +96,7 @@ echo -e "# Last Restored Volume:			$DS_LAST_RESTORED_VOLUME"
 echo -e "# Unique ID:					$UNIQUE_ID"
 echo -e "# User Path on target:			$DS_USER_PATH"
 echo -e "# Restore Repository: 			$DS_REPOSITORY_PATH"
+echo -e "# Backups Repository: 			$DS_REPOSITORY_BACKUPS"
 echo -e "# Internal Drive:				$DS_INTERNAL_DRIVE"
 echo -e "# Backup Count:			$DS_BACKUP_COUNT"
 echo -e "# dscl path:					$dscl"
