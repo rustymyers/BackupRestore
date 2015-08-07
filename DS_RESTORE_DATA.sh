@@ -52,14 +52,6 @@ export DS_LAST_RESTORED_VOLUME="/Volumes/$DS_LAST_RESTORED_VOLUME"
 # Unique ID for plist and common variable for scripts
 export UNIQUE_ID=`echo "$DS_PRIMARY_MAC_ADDRESS"|tr -d ':'` # Add Times? UNIQUE_ID=`date "+%Y%m%d%S"`
 
-# DS Script to backup user data with tar to Backups folder on repository.
-export DS_REPOSITORY_BACKUPS="$DS_REPOSITORY_PATH/Backups/$UNIQUE_ID"
-
-# Set backup count to number of tar files in backup repository - Contributed by Rhon Fitzwater
-# Updated grep contributed by Alan McSeveney <alan@themill.com>
-# export DS_BACKUP_COUNT=`/bin/ls -l "$DS_REPOSITORY_BACKUPS" | grep -E '\.(tar|zip)$' | wc -l`
-export DS_BACKUP_COUNT=`/bin/ls -l "$DS_REPOSITORY_BACKUPS" | grep -E '.*\.tar|.*\.zip' | wc -l`
-
 # Set Path to the folder with home folders
 export DS_USER_PATH="/Users"
 
@@ -68,7 +60,7 @@ while getopts :v:q:r:u:h opt; do
 		# e) EXCLUDE="$OPTARG";;
 		v) DS_LAST_RESTORED_VOLUME="$OPTARG";;
 		q) UNIQUE_ID="$OPTARG";;
-		r) DS_REPOSITORY_PATH="$OPTARG/Backups/$UNIQUE_ID";;
+		r) DS_REPOSITORY_PATH="$OPTARG";;
 		u) DS_USER_PATH="$OPTARG";;
 		h) 
 			help
@@ -80,6 +72,14 @@ while getopts :v:q:r:u:h opt; do
 	esac
 done
 shift `expr $OPTIND - 1`
+
+# DS Script to backup user data with tar to Backups folder on repository.
+export DS_REPOSITORY_BACKUPS="$DS_REPOSITORY_PATH/Backups/$UNIQUE_ID"
+
+# Set backup count to number of tar files in backup repository - Contributed by Rhon Fitzwater
+# Updated grep contributed by Alan McSeveney <alan@themill.com>
+# export DS_BACKUP_COUNT=`/bin/ls -l "$DS_REPOSITORY_BACKUPS" | grep -E '\.(tar|zip)$' | wc -l`
+export DS_BACKUP_COUNT=`/bin/ls -l "$DS_REPOSITORY_BACKUPS" | grep -E '.*\.tar|.*\.zip' | wc -l`
 
 # Set Variables that are dependent on getopts
 # Set path to dscl
@@ -93,6 +93,7 @@ echo -e "# Last Restored Volume:			$DS_LAST_RESTORED_VOLUME"
 echo -e "# Unique ID:					$UNIQUE_ID"
 echo -e "# User Path on target:			$DS_USER_PATH"
 echo -e "# Restore Repository: 			$DS_REPOSITORY_PATH"
+echo -e "# Backups Repository: 			$DS_REPOSITORY_BACKUPS"
 echo -e "# Internal Drive:				$DS_INTERNAL_DRIVE"
 echo -e "# Backup Count:			$DS_BACKUP_COUNT"
 echo -e "# dscl path:					$dscl"
