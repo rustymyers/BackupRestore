@@ -72,7 +72,8 @@ export DS_INTERNAL_DRIVE=`system_profiler SPSerialATADataType|awk -F': ' '/Mount
 # Set Path to the folder with home folders
 export DS_USER_PATH="/Users"
 # Default backup tool
-export BACKUP_TOOL="dmg"
+export BACKUP_TOOL="tar"
+
 # Filename of the backup of the Filevault keys (FilevaultKeys.tar). Not currently implemented
 export FilevaultKeys="FilevaultKeys"
 
@@ -80,7 +81,9 @@ export FilevaultKeys="FilevaultKeys"
 while getopts :e:q:cv:u:d:t:nh opt; do
 	case "$opt" in
 		e) EXCLUDE="$OPTARG";;
-		q) UNIQUE_ID="$OPTARG";;
+		q) 
+			UNIQUE_ID="$OPTARG"
+			DS_REPOSITORY_BACKUPS="$DS_REPOSITORY_PATH/Backups/$UNIQUE_ID";;
 		c) RMCache="1";;
 		v) DS_INTERNAL_DRIVE="$OPTARG";;
 		u) DS_USER_PATH="$OPTARG";;
@@ -135,6 +138,14 @@ fi
 }
 
 echo "educ_backup_data.sh - v0.7.3 (Lion) beta ("`date`")"
+
+
+# Check that the backups folder exists on repo and contains backup folder for this computer.
+# If either are missing, make them.
+if [[ ! -d "$DS_REPOSITORY_BACKUPS" ]]; then
+	mkdir -p "$DS_REPOSITORY_BACKUPS"
+fi
+
 # Start script...
 echo "Scanning Users folder..."
 
@@ -271,6 +282,9 @@ exit 0
 # 	- Moving backup folder root path creation to after user check, 
 # 		only create these folders if we find someone to backup.
 # 
+# Thursday, October, 3, 2014 - v0.7.3
+#   - Fixed a bug that didn't allow -q to be used without -d. Now when specifying a unique ID -d is not required. 
+#
 # Thursday, December, 1, 2011 - v0.7.2
 # 	- Removing code for Lion testing
 # 	- Backing up dslocal user.plist instead of all the records individually.
