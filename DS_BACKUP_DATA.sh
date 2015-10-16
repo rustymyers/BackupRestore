@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# OS X Lion Beta version. Needs testing. Please report bugs.
+# OS X 10.7+ Supported. Please report bugs.
 # Code that is not used for Lion is removed. Use old scripts for 10.6
 # rustymyers@gmail.com
 
@@ -11,7 +11,7 @@
 function help {
     cat<<EOF
 
-    Usage: `basename $0` [ -e "guest admin shared" ] [ -v "/Volumes/Macintosh HD" ] [ -u /Users ] [ -d "/Volumes/External Drive/" ] [ -t tar ]
+    Usage: `basename $0` [ -e "guest admin shared" ] [ -v "/Volumes/Macintosh HD" ] [ -u /Users ] [ -d "/Volumes/External Drive/" ] [ -t tar ] [ -n New Archive ]
     Variables can be set in DeployStudio variables window when running script.
     BackupRestore Variables:
     -q Unique Identifier 
@@ -19,6 +19,7 @@ function help {
 			For example, if you backup a computer and its MAC address
 			was: 000000000001. You can then specify that MAC as the
 			variable to restore to a different computer.
+			Use 'SKIP' to backup users without unique folder. (Can't be restored)
 		 	Read Me has more information on its use.
 	-c Remove User Cache
 			Will delete the Users /Library/Cache
@@ -38,12 +39,14 @@ function help {
     -d Backup destination
             Specify full path to the backup volume
             Default is /tmp/DSNetworkRepository
-    -t Backup tool (tar) - Still working on this one!
+    -t Backup tool (dmg)
             Select backup software, Default tar
+            dmg = Create a dmg with users data.
             tar = Use tar with gzip to backup.
             ditto = Use ditto with gzip to backup
-            rsync NOT WORKING, yet!
-            -removed- rsync = Use rsync to backup
+            rsync (Disabled) = Use rsync to backup - Still working on this one!
+    -n New backup
+            Create a new archive each run by adding a date to end of name. (Can't be restored)
 EOF
 
 }
@@ -54,34 +57,45 @@ EOF
 export EXCLUDE=( "shared" "guest" "deleted users" "spider" )
 # Unique ID for plist and common variable for scripts
 export UNIQUE_ID=`echo "$DS_PRIMARY_MAC_ADDRESS"|tr -d ':'` # Add Times? UNIQUE_ID=`date "+%Y%m%d%S"`
+# Force skip for testing and Chad
+export UNIQUE_ID='SKIP'
 # Should we remove users cache folder? 1 = yes, 0 = no. Set to 0 by default.
 export RMCache="1"
 # DS Script to backup user data with tar to Backups folder on repository.
-export DS_REPOSITORY_BACKUPS="$DS_REPOSITORY_PATH/Backups/$UNIQUE_ID"
+if [[ $UNIQUE_ID = 'SKIP' ]]; then
+	export DS_REPOSITORY_BACKUPS="$DS_REPOSITORY_PATH/Backups/"
+else
+	export DS_REPOSITORY_BACKUPS="$DS_REPOSITORY_PATH/Backups/$UNIQUE_ID"
+fi
 # Set Path to internal drive
 export DS_INTERNAL_DRIVE=`system_profiler SPSerialATADataType|awk -F': ' '/Mount Point/ { print $2}'|head -n1`
 # Set Path to the folder with home folders
 export DS_USER_PATH="/Users"
 # Default backup tool
-export BACKUP_TOOL="tar"
-# Filevault backup ## What the fuck is this for? ## It's the filename of the backup of the Filevault keys (FilevaultKeys.tar). Not currently implemented
+export BACKUP_TOOL="dmg"
+# Filename of the backup of the Filevault keys (FilevaultKeys.tar). Not currently implemented
 export FilevaultKeys="FilevaultKeys"
 
 # Parse command line arguments
-while getopts :e:q:cv:u:d:t:h opt; do
+while getopts :e:q:cv:u:d:t:nh opt; do
 	case "$opt" in
 		e) EXCLUDE="$OPTARG";;
 		q) UNIQUE_ID="$OPTARG";;
 		c) RMCache="1";;
 		v) DS_INTERNAL_DRIVE="$OPTARG";;
 		u) DS_USER_PATH="$OPTARG";;
-		d) DS_REPOSITORY_BACKUPS="$OPTARG/Backups/$UNIQUE_ID";;
+		d) if [[ $UNIQUE_ID = 'SKIP' ]]; then
+			DS_REPOSITORY_BACKUPS="$OPTARG/Backups/"
+		else
+			DS_REPOSITORY_BACKUPS="$OPTARG/Backups/$UNIQUE_ID"
+		fi;;
 		t) BACKUP_TOOL="$OPTARG";;
+		n) NEW_ARCHIVE="1";;
 		h) 
 			help
 			exit 0;;
 		\?)
-			echo "Usage: `basename $0` [-e Excluded Users] [-v Target Volume] [-u User Path] [-d Destination Volume] [ -t Backup Tool ]"
+			echo "Usage: `basename $0` [-e Excluded Users] [-v Target Volume] [-u User Path] [-d Destination Volume] [ -t Backup Tool ] [ -n New Archive ]"
 			echo "For more help, run: `basename $0` -h"
 			exit 0;;
 	esac
@@ -106,6 +120,7 @@ echo -e "# Backup Path:					$DS_REPOSITORY_BACKUPS"
 echo -e "# Backup tool:				$BACKUP_TOOL"
 echo -e "# dscl path:					$dscl"
 echo -e "# Internal Directory:			$INTERNAL_DN"
+echo -e "# New Archive:			$NEW_ARCHIVE"
 
 function RUNTIME_ABORT {
 # Usage:
@@ -119,19 +134,7 @@ else
 fi
 }
 
-echo "educ_backup_data.sh - v0.7.2 (Lion) beta ("`date`")"
-
-# Check that the backups folder is there. 
-# If its missing, make it.
-if [[ ! -d "$DS_REPOSITORY_PATH/Backups" ]]; then
-	mkdir -p "$DS_REPOSITORY_PATH/Backups"
-fi
-# Check that the computer has a backup folder.
-# If its missing, make it.
-if [[ ! -d "$DS_REPOSITORY_PATH/Backups/$UNIQUE_ID" ]]; then
-	mkdir -p "$DS_REPOSITORY_PATH/Backups/$UNIQUE_ID"
-fi
-
+echo "educ_backup_data.sh - v0.7.3 (Lion) beta ("`date`")"
 # Start script...
 echo "Scanning Users folder..."
 
@@ -149,13 +152,23 @@ do
 
     done;
     if (( $keep )); then
+		# Backup 
 		echo "<>Backing up $USERZ to $DS_REPOSITORY_BACKUPS"
-		# Backup user account to computer's folder
+		# Moving to after user check, only create these folders if we find someone to backup.
+		# Check that the backups folder is there. 
+		# If its missing, make it.
+		if [[ ! -d "$DS_REPOSITORY_BACKUPS" ]]; then
+			mkdir -p "$DS_REPOSITORY_BACKUPS"
+		fi
+		# set path to user account from computers user folder
 		DS_BACKUP="$DS_INTERNAL_DRIVE$DS_USER_PATH/$USERZ"
-		DS_ARCHIVE="$DS_REPOSITORY_BACKUPS/$USERZ-HOME"
-		
+		# Append date to create a new backup
+		if [[ $NEW_ARCHIVE = 1 ]]; then
+			DS_ARCHIVE="$DS_REPOSITORY_BACKUPS/$USERZ-HOME-$(date "+%Y.%m.%d.%H.%M.%S")"
+		else
+			DS_ARCHIVE="$DS_REPOSITORY_BACKUPS/$USERZ-HOME"
+		fi
 		# Remove users cache? If set to 1, then yes.
-		# These may not work...need to check.
 		if [[ $RMCache = 1 ]]; then
 			# Remove users home folder cache
 			echo -e "\t-Removing user cache..."
@@ -169,17 +182,24 @@ do
 			tar )
 			# Backup users with tar
 			/usr/bin/tar -czpf "$DS_ARCHIVE.tar" "$DS_BACKUP" &> /dev/null
-			RUNTIME_ABORT "RuntimeAbortWorkflow: Error: could not back up home" "\t+Sucess: Home successfully backed up using tar"
+			RUNTIME_ABORT "RuntimeAbortWorkflow: Error: could not back up home with tar" "\t+Sucess: Home successfully backed to $DS_ARCHIVE.tar"
 				;;
 			ditto ) ## Contributed by Miles Muri, Merci!
 			echo -e "Backing up user home directory to $DS_ARCHIVE.zip"
 			ditto -c -k --sequesterRsrc --keepParent "$DS_BACKUP" "$DS_ARCHIVE.zip" 
-			RUNTIME_ABORT "RuntimeAbortWorkflow: Error: Could not back up home" "\t+Sucess: Home successfully backed up using ditto"
+			RUNTIME_ABORT "RuntimeAbortWorkflow: Error: Could not back up home with ditto" "\t+Sucess: Home successfully backed up to $DS_ARCHIVE.zip"
 			 	;;
-			# rsync )
-			# #Backup using rsync
+			rsync )
+			#Backup using rsync
 			# /usr/bin/rsync -av --update "$DS_BACKUP" "$DS_ARCHIVE.rsync/"
-			# 	;;
+			echo "RuntimeAbortWorkflow: Backup Choice: $BACKUP_TOOL.  Still working on this one! Got a fix?...exiting."
+				;;
+			dmg )
+			#Backup using hdiutil
+			echo -e "Backing up user home directory to $DS_ARCHIVE.dmg"
+			/usr/bin/hdiutil create -srcfolder "$DS_BACKUP" "$DS_ARCHIVE/"
+			RUNTIME_ABORT "RuntimeAbortWorkflow: Error: Could not back up home with hdiutil" "\t+Sucess: Home successfully backed up to $DS_ARCHIVE.dmg"
+				;;
 			* )
 			echo "RuntimeAbortWorkflow: Backup Choice: $BACKUP_TOOL. Invalid flag, no such tool...exiting." 
 			help
@@ -244,6 +264,12 @@ exit 0
 # 	Restore _lpadmin.plist access, _appserveradm.plist, _appserverusr.plist, 
 
 ## Changes
+# 
+# Wednesday, February 25, 2015
+# 	- Added dmg backup option
+# 	- Added option to create unique backup
+# 	- Moving backup folder root path creation to after user check, 
+# 		only create these folders if we find someone to backup.
 # 
 # Thursday, December, 1, 2011 - v0.7.2
 # 	- Removing code for Lion testing
