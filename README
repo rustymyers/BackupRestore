@@ -1,5 +1,5 @@
 BackupRestore Scripts
-Current Version - 0.7.2
+Current Version - 0.7.4
 
 ## Intro ##
 See post here: http://rustyisageek.blogspot.com/p/backuprestore-scripts.html
@@ -12,7 +12,7 @@ See post here: http://rustyisageek.blogspot.com/p/backuprestore-scripts.html
 -e flag to exclude users has been know to not work properly. If used, you must specify all of the default options ( "shared" "guest" "deleted users" ), as well as your additions!
 
 2)
-Always test the script before using it in production! I currently don't have a setup where I can test changes, so always double check!!
+The method to determine the internal drive has recently changed, due mainly to CoreStorage Fusion volumes. Always test the script before using it in production! Please file a bug or email me with any issues.
 
 ## Basic Usage ##
 
@@ -21,8 +21,8 @@ Usage: DS_BACKUP_DATA [ -e "guest admin shared" ] [ -v "/Volumes/Macintosh HD" ]
 Variables can be set in DeployStudio variables window when running script.
 BackupRestore Variables:
 -q Unique Identifier 
-		Should be left empty. Read Me has more
-		information on its use.
+		Should be left empty. Can be used to specify your 
+		own identifier for backups. Default is Serial Number.
 -c Remove User Cache. 
 		Will delete the Users /Library/Cache
  		folder before backing up the data.
@@ -53,10 +53,10 @@ Usage: DS_RESTORE_DATA [ -e "guest admin shared" ] [ -v "/Volumes/Macintosh HD" 
 Variables can be set in DeployStudio variables window when running script.
 BackupRestore Variables:
 -q Unique Identifier.
-		Enter the MAC address of the backup you want to restore.
-		For example, if you backup a computer and its MAC address
-		was: 000000000001. You can then specify that MAC as the
-		variable to restore to a different computer.
+		Enter the Serial Number of the backup you want to restore.
+		For example, if you backup a computer and its Serial Number
+		was: W8FGTV01TZZ. You can then specify that Serial as the
+		variable to restore the backup to a different computer.
 -v Target volume
 		Specify full path to mount point of volume
 		Default is the \$DS_LAST_RESTORED_VOLUME volume
@@ -74,6 +74,6 @@ BackupRestore Variables:
 
 Unique Identifier Usage:
 
-If you'd like to backup from one computer and restore to another, you can specify the MAC address as the UNIQUE_ID (-q) when restoring. This tells the restore scripts to pull the backup from the old computer (by MAC address) rather than look for a backup from the same computer (same MAC address).
+If you'd like to backup from one computer and restore to another, you can specify the Serial Number as the UNIQUE_ID (-q) when restoring. This tells the restore scripts to pull the backup from the old computer (by Serial Number) rather than look for a backup from the same computer (same Serial Number).
 
-Alternatively, you can specify a UNIQUE_ID (-q) for both backup and restore. This way, the scripts will ignore the MAC address of the machines and backup and restore the data using a folder named with the the specified variable. Be sure to set the target volume (-v) for the Backup and Restore so the scripts know where to pull the backup from and where to restore it to. Otherwise, the BackupRestore scripts will use the internal drive of that machine as the backup and restore destinations.
+Alternatively, you can specify a UNIQUE_ID (-q) for both backup and restore. This way, the scripts will ignore the Serial Number of the machines and backup and restore the data using a folder named with the the specified variable. Be sure to set the target volume (-v) for the Backup and Restore so the scripts know where to pull the backup from and where to restore it to. Otherwise, the BackupRestore scripts will use the internal drive of that machine as the backup and restore destinations. 

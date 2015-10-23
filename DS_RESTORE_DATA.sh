@@ -37,20 +37,50 @@ EOF
 }
 
 
-# Set Path to internal drive
-export DS_INTERNAL_DRIVE=`system_profiler SPSerialATADataType | awk -F': ' '/Mount Point/ { print $2}'|head -n1`
-
-# Set Path to last restored volume
-export DS_LAST_RESTORED_VOLUME="/Volumes/$DS_LAST_RESTORED_VOLUME"
 # Default is set to the Last Restored Volume variable from DS
 # If you want to restore the user without restoring an image,
 # set the destination to the volume you wish to target
 
-# Last Restored Volume variable for testing Lion restores.
-# export DS_LAST_RESTORED_VOLUME="$DS_INTERNAL_DRIVE"
+# if there was no recenlty restored volume
+if [[ -z $DS_LAST_RESTORED_VOLUME ]]; then
+	# Set Path to internal drive - Not working with Fusion Drives!
+	# export DS_INTERNAL_DRIVE=`system_profiler SPSerialATADataType | awk -F': ' '/Mount Point/ { print $2}'|head -n1`
+	# create disk array
+	DISKARRAY=( )
+	diskCounter=0
+	# get mounted disks
+	mountedDisks=$(mount | grep -i ^/dev | awk '{print $1}')
+	# check each disk for Internal and Mounted
+	for i in $mountedDisks; do
+		# put each disk's info into a plist
+		diskutil info -plist $i > /tmp/tmpdisk.plist
+		# check each disk for internal, if true...
+		if [[ $(defaults read /tmp/tmpdisk.plist Internal) == 1 ]]; then
+			# get mount point
+			mountPoint=$(defaults read /tmp/tmpdisk.plist MountPoint)
+			# add mount point to array
+			DISKARRAY[diskCounter]=$mountPoint
+			let diskCounter=diskCounter+1
+		fi
+	done
+
+	echo "Found ${#DISKARRAY[@]} disks"
+	echo "Disks: ${DISKARRAY[*]}"
+	
+	# Set the script to guess the internal drive when there is no last restored volume
+	guessInternalDrive=true
+else
+	# Set Path to last restored volume
+	export DS_LAST_RESTORED_VOLUME="/Volumes/$DS_LAST_RESTORED_VOLUME"
+fi
+
+
+
 
 # Unique ID for plist and common variable for scripts
-export UNIQUE_ID=`echo "$DS_PRIMARY_MAC_ADDRESS"|tr -d ':'` # Add Times? UNIQUE_ID=`date "+%Y%m%d%S"`
+# export UNIQUE_ID=`echo "$DS_PRIMARY_MAC_ADDRESS"|tr -d ':'` # Add Times? UNIQUE_ID=`date "+%Y%m%d%S"`
+# Use Serial number for UNIQUE_ID
+export UNIQUE_ID=`system_profiler SPHardwareDataType | awk -F ': ' '/Serial Number/ {print $2}'`
 
 # Set Path to the folder with home folders
 export DS_USER_PATH="/Users"
@@ -58,7 +88,8 @@ export DS_USER_PATH="/Users"
 while getopts :v:q:r:u:h opt; do
 	case "$opt" in
 		# e) EXCLUDE="$OPTARG";;
-		v) DS_LAST_RESTORED_VOLUME="$OPTARG";;
+		v) DS_LAST_RESTORED_VOLUME="$OPTARG"
+			guessInternalDrive=false;;
 		q) UNIQUE_ID="$OPTARG";;
 		r) DS_REPOSITORY_PATH="$OPTARG";;
 		u) DS_USER_PATH="$OPTARG";;
@@ -72,6 +103,37 @@ while getopts :v:q:r:u:h opt; do
 	esac
 done
 shift `expr $OPTIND - 1`
+
+userDiskArray=()
+userDiskCounter=0
+# If we don't have an internal drive passed to us from paramters or DS_LAST_RESTORED_VOLUME, guess it
+if [[ $guessInternalDrive==true ]]; then
+	# Set internal drive we're going to point to
+	for i in "${DISKARRAY[@]}"; do
+		echo "Checking $i for $DS_USER_PATH path..."
+		# if the directory for users exists
+		if [[ -d "$i$DS_USER_PATH" ]]; then
+			echo "Found $i$DS_USER_PATH"
+			userDiskArray[userDiskCounter]=$i
+		else
+			echo "$i does not have $DS_USER_PATH. Not a backup source."
+		fi
+	done
+fi
+echo "Found ${#userDiskArray[@]} disks with $DS_USER_PATH on it."
+echo "Disks: ${userDiskArray[*]}"
+
+if [[  ${#userDiskArray[@]} > 1 ]]; then
+	echo "We found more than one disk. Better set the default with -v"
+	RUNTIME_ABORT "We found more than one disk. Better set the default with -v"
+elif [[ ${#userDiskArray[@]} < 1 ]]; then
+	echo "We found less than one disk. Better check your drives"
+	RUNTIME_ABORT "We found less than one disk. Better check your drives"
+else
+	echo "Setting internal drive to ${userDiskArray[0]}"
+	DS_LAST_RESTORED_VOLUME=${userDiskArray[0]}
+fi
+
 
 # DS Script to backup user data with tar to Backups folder on repository.
 export DS_REPOSITORY_BACKUPS="$DS_REPOSITORY_PATH/Backups/$UNIQUE_ID"
@@ -111,7 +173,7 @@ else
 fi
 }
 
-echo "educ_restore_data.sh - v0.7.2 (Lion) beta ("`date`")"
+echo "educ_restore_data.sh - v0.7.4 (Lion) beta ("`date`")"
 
 # Check if any backups exist for this computer.  If not, exit cleanly. - Contributed by Rhon Fitzwater
 if [ $DS_BACKUP_COUNT -lt 1 ] 
@@ -123,8 +185,8 @@ fi
 
 # Scan computer's folder for users to restore
 for i in "$DS_REPOSITORY_BACKUPS/"*USER.plist; do
-	# Restore User Account
-	USERZ=`echo $(basename $i)|awk -F'-' '{print $1}'`
+	# Restore User Account - adding quote to $i for ryan_butler@epiconline.org. Better escapes directories with spaces & special chars.
+	USERZ=`echo $(basename "$i")|awk -F'-' '{print $1}'`
 
 	echo -e "<>Restoring $USERZ"
 	
@@ -135,7 +197,7 @@ for i in "$DS_REPOSITORY_BACKUPS/"*USER.plist; do
 		# Network accounts don't have their passwords backed up, skipping.
 		echo -e "\t -password skipped"
 		# Check if user is Admin, Restore admin rights
-		if [[ `"$DS_INTERNAL_DRIVE/usr/libexec/PlistBuddy" -c "print :isAdmin" "DS_BACKUP_PLIST"` = "yes" ]]; then
+		if [[ `"$DS_LAST_RESTORED_VOLUME/usr/libexec/PlistBuddy" -c "print :isAdmin" "DS_BACKUP_PLIST"` = "yes" ]]; then
 			"$dscl" -f "$INTERNAL_DN" localonly -merge "/Local/Target/Groups/admin" "GroupMembership" "$USERZ"
 			RUNTIME_ABORT "\t -admin rights failed restore" "\t +admin rights restored"
 		fi
@@ -143,14 +205,14 @@ for i in "$DS_REPOSITORY_BACKUPS/"*USER.plist; do
 		echo -e "\t >Local User:"
 		# Perhaps All I need to do is backup the dslocal users plist?
 		if [[ -e "${DS_REPOSITORY_BACKUPS}/$USERZ.plist" ]]; then
-			cp -p "${DS_REPOSITORY_BACKUPS}/$USERZ.plist" "${DS_INTERNAL_DRIVE}/var/db/dslocal/nodes/Default/users/$USERZ.plist"
+			cp -p "${DS_REPOSITORY_BACKUPS}/$USERZ.plist" "${DS_LAST_RESTORED_VOLUME}/var/db/dslocal/nodes/Default/users/$USERZ.plist"
 			RUNTIME_ABORT "RuntimeAbortWorkflow: Could not create $USERZ...exiting." "\t +account created successfully"
 		fi
 		# Backup plist variable
 		DS_BACKUP_PLIST="$DS_REPOSITORY_BACKUPS/$USERZ-USER.plist"
 		# Add user to admin
 		# Check if user is Admin
-		if [[ `"$DS_INTERNAL_DRIVE/usr/libexec/PlistBuddy" -c "print :isAdmin" "$DS_BACKUP_PLIST"` = "yes" ]]; then
+		if [[ `"$DS_LAST_RESTORED_VOLUME/usr/libexec/PlistBuddy" -c "print :isAdmin" "$DS_BACKUP_PLIST"` = "yes" ]]; then
 			"$dscl" -f "$INTERNAL_DN" localonly -merge "/Local/Target/Groups/admin" "GroupMembers" "$GenUID"
 			"$dscl" -f "$INTERNAL_DN" localonly -merge "/Local/Target/Groups/admin" "GroupMembership" "$USERZ"
 			RUNTIME_ABORT "\t -admin rights failed to restore" "\t +admin rights restored"
@@ -160,14 +222,16 @@ done
 
 # Restore user data from Backups folder on repository.
 # Get backup tool
-RESTORE_TOOL=`"$DS_INTERNAL_DRIVE/usr/libexec/PlistBuddy" -c "print :backuptool" "$DS_REPOSITORY_BACKUPS/$USERZ.BACKUP.plist"`
+RESTORE_TOOL=`"$DS_LAST_RESTORED_VOLUME/usr/libexec/PlistBuddy" -c "print :backuptool" "$DS_REPOSITORY_BACKUPS/$USERZ.BACKUP.plist"`
 echo " >Restoring $USERZ user directory with $RESTORE_TOOL"
 case $RESTORE_TOOL in
 	tar )
 		for i in "$DS_REPOSITORY_BACKUPS"/*HOME.tar; do
 			USERZ=`echo $(basename $i)|awk -F'_' '{print $1}'`
 			echo " >>Restore From: $i Restore To: $DS_LAST_RESTORED_VOLUME$DS_USER_PATH/"
-			/usr/bin/tar -xf "$i" -C "$DS_LAST_RESTORED_VOLUME$DS_USER_PATH/" --strip-components=3 --keep-newer-files
+			# /usr/bin/tar -xf "$i" -C "$DS_LAST_RESTORED_VOLUME$DS_USER_PATH/" --strip-components=3 --keep-newer-files
+			# testing moving into Users folder to make archive - suggested by Per Olofsson
+			(cd "$DS_LAST_RESTORED_VOLUME$DS_USER_PATH/" && tar xpvf "$i")
 			RUNTIME_ABORT "RuntimeAbortWorkflow: Could not restore home folder for $USERZ using tar...exiting." "\t +home restored successfully"
 		done
 		;;
@@ -200,6 +264,10 @@ exit 0
 
 
 ## Changes
+# Thursday, October 22, 2015 - 0.7.4
+# 	- Changing tar workflow to fix issue with restore (sub-Users Users folder)
+# 	- Switch to Serial Number
+# 	- Updating method to determine internal drive for Fusion Systems
 # 
 # Tuesday, September, 11, 2012 - v0.7.3
 # 	- Updating Grep for DS_BACKUP_COUNT to support 10.8

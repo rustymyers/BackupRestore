@@ -51,26 +51,70 @@ EOF
 
 }
 
+ifError () {
+# check return code passed to function
+exitStatus=$?
+# set a time
+TIME=`date "+%Y-%m-%d-%H:%M:%S"`
+if [[ $exitStatus -ne 0 ]]; then
+# if rc > 0 then print error msg and quit
+echo -e "$0 Time:$TIME $1 Exit: $exitStatus"
+# exit $exitStatus
+fi
+}
+
 #Variables:
 # Ignore these accounts or folders in /Users (use lowercase):
 # Shared folder is excluded using "shared"
-export EXCLUDE=( "shared" "guest" "deleted users" "spider" )
+export EXCLUDE=( "shared" "guest" "deleted users" )
+
 # Unique ID for plist and common variable for scripts
-export UNIQUE_ID=`echo "$DS_PRIMARY_MAC_ADDRESS"|tr -d ':'` # Add Times? UNIQUE_ID=`date "+%Y%m%d%S"`
-# Force skip for testing and Chad
-export UNIQUE_ID='SKIP'
+# export UNIQUE_ID=`echo "$DS_PRIMARY_MAC_ADDRESS"|tr -d ':'` # Add Times? UNIQUE_ID=`date "+%Y%m%d%S"`
+
+# Use Serial number for UNIQUE_ID
+export UNIQUE_ID=`system_profiler SPHardwareDataType | awk -F ': ' '/Serial Number/ {print $2}'`
+
+# Force skip for testing and Chad - enabling this causes backups to appear in root of backup folder, instead of inside per computer folders
+# export UNIQUE_ID='SKIP'
+
 # Should we remove users cache folder? 1 = yes, 0 = no. Set to 0 by default.
-export RMCache="1"
+export RMCache="0"
+
 # DS Script to backup user data with tar to Backups folder on repository.
 if [[ $UNIQUE_ID = 'SKIP' ]]; then
 	export DS_REPOSITORY_BACKUPS="$DS_REPOSITORY_PATH/Backups/"
 else
 	export DS_REPOSITORY_BACKUPS="$DS_REPOSITORY_PATH/Backups/$UNIQUE_ID"
 fi
-# Set Path to internal drive
-export DS_INTERNAL_DRIVE=`system_profiler SPSerialATADataType|awk -F': ' '/Mount Point/ { print $2}'|head -n1`
+
+# Set Path to internal drive - Not working with Fusion Drives!!
+# export DS_INTERNAL_DRIVE=`system_profiler SPSerialATADataType|awk -F': ' '/Mount Point/ { print $2}'|head -n1`
+
+# create disk array
+DISKARRAY=( )
+diskCounter=0
+# get mounted disks
+mountedDisks=$(mount | grep -i ^/dev | awk '{print $1}')
+# check each disk for Internal and Mounted
+for i in $mountedDisks; do
+	# put each disk's info into a plist
+	diskutil info -plist $i > /tmp/tmpdisk.plist
+	# check each disk for internal, if true...
+	if [[ $(defaults read /tmp/tmpdisk.plist Internal) == 1 ]]; then
+		# get mount point
+		mountPoint=$(defaults read /tmp/tmpdisk.plist MountPoint)
+		# add mount point to array
+		DISKARRAY[diskCounter]=$mountPoint
+		let diskCounter=diskCounter+1
+	fi
+done
+
+echo "Found ${#DISKARRAY[@]} disks"
+echo "Disks: ${DISKARRAY[*]}"
+
 # Set Path to the folder with home folders
 export DS_USER_PATH="/Users"
+
 # Default backup tool
 export BACKUP_TOOL="tar"
 
@@ -83,15 +127,21 @@ while getopts :e:q:cv:u:d:t:nh opt; do
 		e) EXCLUDE="$OPTARG";;
 		q) 
 			UNIQUE_ID="$OPTARG"
-			DS_REPOSITORY_BACKUPS="$DS_REPOSITORY_PATH/Backups/$UNIQUE_ID";;
+			if [[ $UNIQUE_ID = 'SKIP' ]]; then
+				DS_REPOSITORY_BACKUPS="$OPTARG/Backups/"
+			else
+				DS_REPOSITORY_BACKUPS="$OPTARG/Backups/$UNIQUE_ID"
+			fi;;
 		c) RMCache="1";;
-		v) DS_INTERNAL_DRIVE="$OPTARG";;
+		v) DS_INTERNAL_DRIVE="$OPTARG"
+			guessInternalDrive=false;;
 		u) DS_USER_PATH="$OPTARG";;
-		d) if [[ $UNIQUE_ID = 'SKIP' ]]; then
-			DS_REPOSITORY_BACKUPS="$OPTARG/Backups/"
-		else
-			DS_REPOSITORY_BACKUPS="$OPTARG/Backups/$UNIQUE_ID"
-		fi;;
+		d) 
+			if [[ $UNIQUE_ID = 'SKIP' ]]; then
+				DS_REPOSITORY_BACKUPS="$OPTARG/Backups/"
+			else
+				DS_REPOSITORY_BACKUPS="$OPTARG/Backups/$UNIQUE_ID"
+			fi;;
 		t) BACKUP_TOOL="$OPTARG";;
 		n) NEW_ARCHIVE="1";;
 		h) 
@@ -104,6 +154,36 @@ while getopts :e:q:cv:u:d:t:nh opt; do
 	esac
 done
 shift `expr $OPTIND - 1`
+
+userDiskArray=()
+userDiskCounter=0
+# If we don't have an internal drive passed to us, guess it
+if [[ $guessInternalDrive==true ]]; then
+	# Set internal drive we're going to point to
+	for i in "${DISKARRAY[@]}"; do
+		echo "Checking $i for $DS_USER_PATH path..."
+		# if the directory for users exists
+		if [[ -d "$i$DS_USER_PATH" ]]; then
+			echo "Found $i$DS_USER_PATH"
+			userDiskArray[userDiskCounter]=$i
+		else
+			echo "$i does not have $DS_USER_PATH. Not a backup source."
+		fi
+	done
+fi
+echo "Found ${#userDiskArray[@]} disks with $DS_USER_PATH on it."
+echo "Disks: ${userDiskArray[*]}"
+
+if [[  ${#userDiskArray[@]} > 1 ]]; then
+	echo "We found more than one disk. Better set the default with -v"
+	RUNTIME_ABORT "We found more than one disk. Better set the default with -v"
+elif [[ ${#userDiskArray[@]} < 1 ]]; then
+	echo "We found less than one disk. Better check your drives"
+	RUNTIME_ABORT "We found less than one disk. Better check your drives"
+else
+	echo "Setting internal drive to ${userDiskArray[0]}"
+	DS_INTERNAL_DRIVE=${userDiskArray[0]}
+fi
 
 # Set variables that are dependent on getopts
 # Set path to dscl
@@ -137,7 +217,7 @@ else
 fi
 }
 
-echo "educ_backup_data.sh - v0.7.3 (Lion) beta ("`date`")"
+echo "educ_backup_data.sh - v0.7.4 (Lion) beta ("`date`")"
 
 
 # Check that the backups folder exists on repo and contains backup folder for this computer.
@@ -192,7 +272,10 @@ do
 		case $BACKUP_TOOL in
 			tar )
 			# Backup users with tar
-			/usr/bin/tar -czpf "$DS_ARCHIVE.tar" "$DS_BACKUP" &> /dev/null
+			# /usr/bin/tar -czpf "$DS_ARCHIVE.tar" "$DS_BACKUP" &> /dev/null
+			# testing moving into Users folder to make archive - suggested by Per Olofsson
+			(cd "$DS_INTERNAL_DRIVE$DS_USER_PATH" && tar -czf "$DS_ARCHIVE.tar" "$USERZ")
+			ifError "Tar failed to backup home folder?!"
 			RUNTIME_ABORT "RuntimeAbortWorkflow: Error: could not back up home with tar" "\t+Sucess: Home successfully backed to $DS_ARCHIVE.tar"
 				;;
 			ditto ) ## Contributed by Miles Muri, Merci!
@@ -266,7 +349,6 @@ exit 0
 
 ## To Do
 #
-# Switch to Serial Number?
 # Plan for "Deleted Users" folder
 # Log paths to backup folders
 # Backup More User Records?? 
@@ -275,8 +357,12 @@ exit 0
 # 	Restore _lpadmin.plist access, _appserveradm.plist, _appserverusr.plist, 
 
 ## Changes
+# Thursday, October 22, 2015 - 0.7.4
+# 	- Changing tar workflow to fix issue with restore (sub-Users Users folder)
+# 	- Switch to Serial Number
+# 	- Updating method to determine internal drive for Fusion Systems
 # 
-# Wednesday, February 25, 2015
+# Wednesday, February 25, 2015 - 0.7.3
 # 	- Added dmg backup option
 # 	- Added option to create unique backup
 # 	- Moving backup folder root path creation to after user check, 
