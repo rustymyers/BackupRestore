@@ -245,7 +245,7 @@ else
 fi
 }
 
-echo "educ_backup_data.sh - v0.7.4 (Lion) beta ("`date`")"
+echo "educ_backup_data.sh - v0.7.5 (Lion) beta ("`date`")"
 
 # Check that the backups folder exists on repo and contains backup folder for this computer.
 # If either are missing, make them.

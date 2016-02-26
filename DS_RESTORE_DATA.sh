@@ -204,7 +204,7 @@ else
 fi
 }
 
-echo "educ_restore_data.sh - v0.7.4 (Lion) beta ("`date`")"
+echo "educ_restore_data.sh - v0.7.5 (Lion) beta ("`date`")"
 
 # Check if any backups exist for this computer.  If not, exit cleanly. - Contributed by Rhon Fitzwater
 if [ $DS_BACKUP_COUNT -lt 1 ] 
