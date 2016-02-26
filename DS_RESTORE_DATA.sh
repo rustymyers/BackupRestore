@@ -31,6 +31,9 @@ function help {
 			Set to path of the backup volume
 			Default is the DS Repository
 			e.g. "/Volumes/NFSDrive/Backups"
+	-p Prompt for Unique ID (BETA)
+			Prompt the user during restore for the unique ID to use from the hard coded lists.
+	
 
 EOF
 
@@ -74,8 +77,8 @@ else
 	export DS_LAST_RESTORED_VOLUME="/Volumes/$DS_LAST_RESTORED_VOLUME"
 fi
 
-
-
+# Force the Scripts to prompt for Unique ID during runtime:
+# PROMPT_UNIQUE="1"
 
 # Unique ID for plist and common variable for scripts
 # export UNIQUE_ID=`echo "$DS_PRIMARY_MAC_ADDRESS"|tr -d ':'` # Add Times? UNIQUE_ID=`date "+%Y%m%d%S"`
@@ -85,7 +88,7 @@ export UNIQUE_ID=`system_profiler SPHardwareDataType | awk -F ': ' '/Serial Numb
 # Set Path to the folder with home folders
 export DS_USER_PATH="/Users"
 
-while getopts :v:q:r:u:h opt; do
+while getopts :v:q:r:u:ph opt; do
 	case "$opt" in
 		# e) EXCLUDE="$OPTARG";;
 		v) DS_LAST_RESTORED_VOLUME="$OPTARG"
@@ -93,11 +96,12 @@ while getopts :v:q:r:u:h opt; do
 		q) UNIQUE_ID="$OPTARG";;
 		r) DS_REPOSITORY_PATH="$OPTARG";;
 		u) DS_USER_PATH="$OPTARG";;
+		p) PROMPT_UNIQUE="1";;
 		h) 
 			help
 			exit 0;;
 		\?)
-			echo "Usage: `basename $0` [-v Target Volume ] [-q MAC Address of target machine] [-r Backup Repository ]"
+			echo "Usage: `basename $0` [-v Target Volume ] [-q MAC Address of target machine] [-r Backup Repository ] [ -p Prompt for Uniqe ID ]"
 			echo "For more help, run: `basename $0` -h"
 			exit 0;;
 	esac
@@ -138,16 +142,43 @@ fi
 # DS Script to backup user data with tar to Backups folder on repository.
 export DS_REPOSITORY_BACKUPS="$DS_REPOSITORY_PATH/Backups/$UNIQUE_ID"
 
-# Set backup count to number of tar files in backup repository - Contributed by Rhon Fitzwater
-# Updated grep contributed by Alan McSeveney <alan@themill.com>
-# export DS_BACKUP_COUNT=`/bin/ls -l "$DS_REPOSITORY_BACKUPS" | grep -E '\.(tar|zip)$' | wc -l`
-export DS_BACKUP_COUNT=`/bin/ls -l "$DS_REPOSITORY_BACKUPS" | grep -E '.*\.tar|.*\.zip' | wc -l`
+if [[ -e "$DS_REPOSITORY_BACKUPS" ]]; then
+	# Set backup count to number of tar files in backup repository - Contributed by Rhon Fitzwater
+	# Updated grep contributed by Alan McSeveney <alan@themill.com>
+	# export DS_BACKUP_COUNT=`/bin/ls -l "$DS_REPOSITORY_BACKUPS" | grep -E '\.(tar|zip)$' | wc -l`
+	export DS_BACKUP_COUNT=`/bin/ls -l "$DS_REPOSITORY_BACKUPS" | grep -E '.*\.tar|.*\.zip' | wc -l`
+else
+	echo "Could not find $DS_REPOSITORY_BACKUPS"
+fi
 
 # Set Variables that are dependent on getopts
 # Set path to dscl
 export dscl="$DS_LAST_RESTORED_VOLUME/usr/bin/dscl"
 # Internal Drive directory node
 export INTERNAL_DN="$DS_LAST_RESTORED_VOLUME/var/db/dslocal/nodes/Default"
+
+# if we are supposed to prompt for unique ID, do it now
+if [[ "$PROMPT_UNIQUE" == "1" ]]; then
+	POPUP=`dirname "$0"`/cocoaDialog.app/Contents/MacOS/cocoaDialog
+	if [[ ! -e "$POPUP" ]]; then
+		echo "We could not find CocoaDialog. Make sure the .app is in the same directory as this script!"
+		RUNTIME_ABORT "We could not find CocoaDialog. Make sure the .app is in the same directory as this script!"
+	fi
+	RUNMODE="standard-dropdown"
+	TITLE="Select your option:"
+	TEXT="Please select your unique ID from the list"
+	OTHEROPTS="--no-cancel --float --string-output"
+	# Change this list to the ID's you want to use:
+	ITEMS=( "BACKUP1" "BACKUP2" "BACKUP3" "BACKUP4" )
+	ICON="group"
+	ICONSIZE="128"
+
+	#Do the dialog, get the result and strip the Okay button code
+	RESPONSE=`$POPUP $RUNMODE $OTHEROPTS --icon $ICON --icon-size $ICONSIZE --title "${TITLE}" --text "${TEXT}" --items "${ITEMS[@]}"`
+	RESPONSE=`echo $RESPONSE | sed 's/Ok //g'`
+	UNIQUE_ID="$RESPONSE"
+	
+fi
 
 # Uncomment this section when you want to see the variables in the log. Great for troubleshooting. 
 echo -e "# Restore Arguments"
@@ -264,6 +295,9 @@ exit 0
 
 
 ## Changes
+# Friday, Febuary 26, 2016 - 0.7.5
+# 	- Adding CocoaDialog Support for Unique ID, requested by Steve M. Thanks Steve!
+# 
 # Thursday, October 22, 2015 - 0.7.4
 # 	- Changing tar workflow to fix issue with restore (sub-Users Users folder)
 # 	- Switch to Serial Number

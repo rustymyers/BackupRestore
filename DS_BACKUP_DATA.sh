@@ -47,6 +47,8 @@ function help {
             rsync (Disabled) = Use rsync to backup - Still working on this one!
     -n New backup
             Create a new archive each run by adding a date to end of name. (Can't be restored)
+    -p Prompt for Unique ID (BETA)
+            Prompt the user during backup for the unique ID to use from the hard coded lists.
 EOF
 
 }
@@ -87,6 +89,9 @@ else
 	export DS_REPOSITORY_BACKUPS="$DS_REPOSITORY_PATH/Backups/$UNIQUE_ID"
 fi
 
+# Force the Scripts to prompt for Unique ID during runtime:
+# PROMPT_UNIQUE="1"
+
 # Set Path to internal drive - Not working with Fusion Drives!!
 # export DS_INTERNAL_DRIVE=`system_profiler SPSerialATADataType|awk -F': ' '/Mount Point/ { print $2}'|head -n1`
 
@@ -122,7 +127,7 @@ export BACKUP_TOOL="tar"
 export FilevaultKeys="FilevaultKeys"
 
 # Parse command line arguments
-while getopts :e:q:cv:u:d:t:nh opt; do
+while getopts :e:q:cv:u:d:t:nph opt; do
 	case "$opt" in
 		e) EXCLUDE="$OPTARG";;
 		q) 
@@ -144,11 +149,12 @@ while getopts :e:q:cv:u:d:t:nh opt; do
 			fi;;
 		t) BACKUP_TOOL="$OPTARG";;
 		n) NEW_ARCHIVE="1";;
+		p) PROMPT_UNIQUE="1";;
 		h) 
 			help
 			exit 0;;
 		\?)
-			echo "Usage: `basename $0` [-e Excluded Users] [-v Target Volume] [-u User Path] [-d Destination Volume] [ -t Backup Tool ] [ -n New Archive ]"
+			echo "Usage: `basename $0` [-e Excluded Users] [-v Target Volume] [-u User Path] [-d Destination Volume] [ -t Backup Tool ] [ -n New Archive ] [ -p Prompt for Uniqe ID ]"
 			echo "For more help, run: `basename $0` -h"
 			exit 0;;
 	esac
@@ -191,6 +197,28 @@ export dscl="$DS_INTERNAL_DRIVE/usr/bin/dscl"
 # Internal drive's directory node
 export INTERNAL_DN="$DS_INTERNAL_DRIVE/var/db/dslocal/nodes/Default"
 
+# if we are supposed to prompt for unique ID, do it now
+if [[ "$PROMPT_UNIQUE" == "1" ]]; then
+	POPUP=`dirname "$0"`/cocoaDialog.app/Contents/MacOS/cocoaDialog
+	if [[ ! -e "$POPUP" ]]; then
+		echo "We could not find CocoaDialog. Make sure the .app is in the same directory as this script!"
+		RUNTIME_ABORT "We could not find CocoaDialog. Make sure the .app is in the same directory as this script!"
+	fi
+	RUNMODE="standard-dropdown"
+	TITLE="Select your option:"
+	TEXT="Please select your unique ID from the list"
+	OTHEROPTS="--no-cancel --float --string-output"
+	# Change this list to the ID's you want to use:
+	ITEMS=( "BACKUP1" "BACKUP2" "BACKUP3" "BACKUP4" )
+	ICON="group"
+	ICONSIZE="128"
+
+	#Do the dialog, get the result and strip the Okay button code
+	RESPONSE=`$POPUP $RUNMODE $OTHEROPTS --icon $ICON --icon-size $ICONSIZE --title "${TITLE}" --text "${TEXT}" --items "${ITEMS[@]}"`
+	RESPONSE=`echo $RESPONSE | sed 's/Ok //g'`
+	UNIQUE_ID="$RESPONSE"
+	
+fi
 # Prints variables in the log. Great for troubleshooting. 		
 echo -e "## Backup Arguments"
 echo -e "# Unique ID:					$UNIQUE_ID"
@@ -218,7 +246,6 @@ fi
 }
 
 echo "educ_backup_data.sh - v0.7.4 (Lion) beta ("`date`")"
-
 
 # Check that the backups folder exists on repo and contains backup folder for this computer.
 # If either are missing, make them.
@@ -357,6 +384,9 @@ exit 0
 # 	Restore _lpadmin.plist access, _appserveradm.plist, _appserverusr.plist, 
 
 ## Changes
+# Friday, Febuary 26, 2016 - 0.7.5
+# 	- Adding CocoaDialog Support for Unique ID, requested by Steve M. Thanks Steve!
+# 
 # Thursday, October 22, 2015 - 0.7.4
 # 	- Changing tar workflow to fix issue with restore (sub-Users Users folder)
 # 	- Switch to Serial Number

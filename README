@@ -47,7 +47,10 @@ BackupRestore Variables:
         ditto and rsync NOT WORKING, yet!
         -removed- ditto = Use ditto with gzip to backup
         -removed- rsync = Use rsync to backup
-
+-n New backup
+        Create a new archive each run by adding a date to end of name. (Can't be restored)
+-p Prompt for Unique ID (BETA)
+        Prompt the user during backup for the unique ID to use from the hard coded lists.
 
 Usage: DS_RESTORE_DATA [ -e "guest admin shared" ] [ -v "/Volumes/Macintosh HD" ] [ -u /Users ] [ -d "/Volumes/External Drive/" ] [ -t tar ]
 Variables can be set in DeployStudio variables window when running script.
@@ -68,6 +71,9 @@ BackupRestore Variables:
 		Set to path of the backup volume
 		Default is the DS Repository
 		e.g. "/Volumes/NFSDrive/Backups"
+-p Prompt for Unique ID (BETA)
+		Prompt the user during restore for the unique ID to use from the hard coded lists.
+
 
 
 ## Advanced Usage ##
@@ -77,3 +83,5 @@ Unique Identifier Usage:
 If you'd like to backup from one computer and restore to another, you can specify the Serial Number as the UNIQUE_ID (-q) when restoring. This tells the restore scripts to pull the backup from the old computer (by Serial Number) rather than look for a backup from the same computer (same Serial Number).
 
 Alternatively, you can specify a UNIQUE_ID (-q) for both backup and restore. This way, the scripts will ignore the Serial Number of the machines and backup and restore the data using a folder named with the the specified variable. Be sure to set the target volume (-v) for the Backup and Restore so the scripts know where to pull the backup from and where to restore it to. Otherwise, the BackupRestore scripts will use the internal drive of that machine as the backup and restore destinations. 
+
+If you'd like to have the user prompted for which Unique ID to use, configure both Backup and Restore with the values you want and use the -p flag to force it to prompt during runtime. Selecting the same Unique ID for Backup and Restore will allow you to backup from one device and restore to any other. (BETA) The variable PROMPT_UNIQUE="1" can also be hard coded in the scripts to force a prompt
