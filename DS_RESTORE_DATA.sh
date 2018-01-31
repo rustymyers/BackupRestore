@@ -83,7 +83,7 @@ fi
 # Unique ID for plist and common variable for scripts
 # export UNIQUE_ID=`echo "$DS_PRIMARY_MAC_ADDRESS"|tr -d ':'` # Add Times? UNIQUE_ID=`date "+%Y%m%d%S"`
 # Use Serial number for UNIQUE_ID
-export UNIQUE_ID=`system_profiler SPHardwareDataType | awk -F ': ' '/Serial Number/ {print $2}'`
+export UNIQUE_ID=$(ioreg -c IOPlatformExpertDevice -d 2 | awk -F\" '/IOPlatformSerialNumber/ {print $(NF-1)}')
 
 # Set Path to the folder with home folders
 export DS_USER_PATH="/Users"
@@ -204,7 +204,7 @@ else
 fi
 }
 
-echo "educ_restore_data.sh - v0.7.5 (Lion) beta ("`date`")"
+echo "educ_restore_data.sh - v0.7.6 (High Sierra) beta ("`date`")"
 
 # Check if any backups exist for this computer.  If not, exit cleanly. - Contributed by Rhon Fitzwater
 if [ $DS_BACKUP_COUNT -lt 1 ] 
@@ -295,6 +295,9 @@ exit 0
 
 
 ## Changes
+# Wednesday, January 31, 2018 - 0.7.6
+# 	- Updating UNIQUE_ID to use ioreg instead of system_profiler due to its removal on High Sierra NetBoot Images.
+# 
 # Friday, Febuary 26, 2016 - 0.7.5
 # 	- Adding CocoaDialog Support for Unique ID, requested by Steve M. Thanks Steve!
 # 

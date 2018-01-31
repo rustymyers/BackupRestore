@@ -74,7 +74,7 @@ export EXCLUDE=( "shared" "guest" "deleted users" )
 # export UNIQUE_ID=`echo "$DS_PRIMARY_MAC_ADDRESS"|tr -d ':'` # Add Times? UNIQUE_ID=`date "+%Y%m%d%S"`
 
 # Use Serial number for UNIQUE_ID
-export UNIQUE_ID=`system_profiler SPHardwareDataType | awk -F ': ' '/Serial Number/ {print $2}'`
+export UNIQUE_ID=$(ioreg -c IOPlatformExpertDevice -d 2 | awk -F\" '/IOPlatformSerialNumber/ {print $(NF-1)}')
 
 # Force skip for testing and Chad - enabling this causes backups to appear in root of backup folder, instead of inside per computer folders
 # export UNIQUE_ID='SKIP'
@@ -245,7 +245,7 @@ else
 fi
 }
 
-echo "educ_backup_data.sh - v0.7.5 (Lion) beta ("`date`")"
+echo "educ_backup_data.sh - v0.7.6 (High Sierra) beta ("`date`")"
 
 # Check that the backups folder exists on repo and contains backup folder for this computer.
 # If either are missing, make them.
@@ -384,6 +384,9 @@ exit 0
 # 	Restore _lpadmin.plist access, _appserveradm.plist, _appserverusr.plist, 
 
 ## Changes
+# Wednesday, January 31, 2018 - 0.7.6
+# 	- Updating UNIQUE_ID to use ioreg instead of system_profiler due to its removal on High Sierra NetBoot Images.
+# 
 # Friday, Febuary 26, 2016 - 0.7.5
 # 	- Adding CocoaDialog Support for Unique ID, requested by Steve M. Thanks Steve!
 # 
